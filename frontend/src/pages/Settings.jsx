@@ -54,10 +54,17 @@ export default function Settings() {
   };
 
   const toggleChannel = (key) => {
-    setDraft(d => ({
-      ...d,
-      channels: d.channels.includes(key) ? d.channels.filter(k => k !== key) : [...d.channels, key],
-    }));
+    setDraft(d => {
+      // Global is exclusive — picking Global clears channel-specific picks; picking a channel clears Global.
+      let next;
+      if (key === "global") {
+        next = d.channels.includes("global") ? d.channels.filter(k => k !== "global") : ["global"];
+      } else {
+        const withoutGlobal = d.channels.filter(k => k !== "global");
+        next = withoutGlobal.includes(key) ? withoutGlobal.filter(k => k !== key) : [...withoutGlobal, key];
+      }
+      return { ...d, channels: next };
+    });
   };
 
   const isEditing = creating || !!editingId;
