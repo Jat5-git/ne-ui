@@ -3,305 +3,224 @@ import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { REVENUE_TREND } from "@/data/seed";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
-import { Filter, Download, Columns3, RefreshCw, ChevronDown, Plus, X, SlidersHorizontal } from "lucide-react";
+import { Filter, Download, Columns3, RefreshCw, ChevronDown, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import SearchableSelect from "@/components/SearchableSelect";
+import AdvancedFilterPanel, { applyFilters } from "@/components/AdvancedFilterPanel";
 
 const COLORS = { amazon: "#FF9900", shopify: "#7AB55C", flipkart: "#2874F0", woocommerce: "#7F54B3" };
-
 const fmt = (n) => "₹" + (n || 0).toLocaleString("en-IN");
 
-// -------- Report Builder config: source datasets & their available columns --------
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Stock removed — Analytics is confirmed-orders only. Stock lives on Listings & Channels.
 const REPORTS = {
   listings: {
     label: "Listings by Channel",
     cols: [
-      { key: "master_sku", label: "Master SKU" },
-      { key: "title", label: "Title" },
-      { key: "channel", label: "Channel" },
-      { key: "channel_sku", label: "Channel SKU" },
-      { key: "status", label: "Status" },
-      { key: "price", label: "Price", num: true },
-      { key: "stock", label: "Stock", num: true },
-      { key: "blocked", label: "Blocked", num: true },
-      { key: "available", label: "Available", num: true },
-      { key: "units_sold_30d", label: "Sold (30d)", num: true },
-      { key: "revenue_30d", label: "Revenue (30d)", num: true, money: true },
-      { key: "last_synced", label: "Last Sync" },
+      { key: "master_sku",  label: "Master SKU",    type: "string" },
+      { key: "title",       label: "Title",         type: "string" },
+      { key: "channel",     label: "Channel",       type: "string" },
+      { key: "channel_sku", label: "Channel SKU",   type: "string" },
+      { key: "status",      label: "Status",        type: "string" },
+      { key: "price",       label: "Price",         type: "number", num: true },
+      { key: "units_sold",  label: "Sold (range)",  type: "number", num: true },
+      { key: "revenue",     label: "Revenue (range)", type: "number", num: true, money: true },
+      { key: "last_synced", label: "Last Sync",     type: "date" },
     ],
   },
   revenue: {
     label: "Revenue by Order",
     cols: [
-      { key: "channel_order_id", label: "Order ID" },
-      { key: "channel", label: "Channel" },
-      { key: "customer", label: "Customer" },
-      { key: "status", label: "Status" },
-      { key: "units", label: "Units", num: true },
-      { key: "gross", label: "Gross", num: true, money: true },
-      { key: "revenue_state", label: "Revenue State" },
-      { key: "date", label: "Date" },
-    ],
-  },
-  stock: {
-    label: "Stock by Product",
-    cols: [
-      { key: "sku", label: "Master SKU" },
-      { key: "title", label: "Title" },
-      { key: "brand", label: "Brand" },
-      { key: "category", label: "Category" },
-      { key: "stock_mode", label: "Mode" },
-      { key: "stock", label: "On-hand", num: true },
-      { key: "blocked", label: "Blocked", num: true },
-      { key: "available", label: "Available", num: true },
-      { key: "channels_count", label: "Channels", num: true },
-      { key: "status", label: "Status" },
+      { key: "channel_order_id", label: "Order ID",     type: "string" },
+      { key: "channel",          label: "Channel",      type: "string" },
+      { key: "customer",         label: "Customer",     type: "string" },
+      { key: "status",           label: "Status",       type: "string" },
+      { key: "units",            label: "Units",        type: "number", num: true },
+      { key: "gross",            label: "Gross",        type: "number", num: true, money: true },
+      { key: "revenue_state",    label: "Revenue State",type: "string" },
+      { key: "date",             label: "Date",         type: "date" },
     ],
   },
   channel_summary: {
     label: "Channel Summary",
     cols: [
-      { key: "channel", label: "Channel" },
-      { key: "listings", label: "Listings", num: true },
-      { key: "units", label: "Units Sold", num: true },
-      { key: "pending", label: "Pending Rev", num: true, money: true },
-      { key: "confirmed", label: "Confirmed Rev", num: true, money: true },
-      { key: "refunded", label: "Refunded", num: true, money: true },
-      { key: "net", label: "Net Revenue", num: true, money: true },
+      { key: "channel",   label: "Channel",       type: "string" },
+      { key: "listings",  label: "Listings",      type: "number", num: true },
+      { key: "units",     label: "Units Sold",    type: "number", num: true },
+      { key: "pending",   label: "Pending Rev",   type: "number", num: true, money: true },
+      { key: "confirmed", label: "Confirmed Rev", type: "number", num: true, money: true },
+      { key: "refunded",  label: "Refunded",      type: "number", num: true, money: true },
+      { key: "net",       label: "Net Revenue",   type: "number", num: true, money: true },
     ],
   },
 };
 
 export default function Analytics() {
-  const store = useStore();
-  const { listings, channels, products, orders, returns, revenueSummary, revenueByChannel, blockedForProduct, availableStock, blockedForChannel, availableForListing, orderTotal, orderQty } = store;
+  const { listings, channels, products, orders, returns, revenueSummary, revenueByChannel, orderTotal, orderQty, soldForListingInRange } = useStore();
 
-  // ---- Report Builder state ----
+  // ==== Global Date Range (drives entire preview) ====
+  const [dateFrom, setDateFrom] = useState(daysAgo(30));
+  const [dateTo, setDateTo]     = useState(today());
+
   const [reportType, setReportType] = useState("listings");
   const cfg = REPORTS[reportType];
   const [selectedCols, setSelectedCols] = useState(cfg.cols.map(c => c.key));
+
   const [flChannels, setFlChannels] = useState(new Set(channels.map(c => c.key)));
-  const [flStatus, setFlStatus] = useState("all");
-  const [flBrand, setFlBrand] = useState("all");
-  const [flCategory, setFlCategory] = useState("all");
-  const [flStockMin, setFlStockMin] = useState("");
-  const [flStockMax, setFlStockMax] = useState("");
-  const [flDateFrom, setFlDateFrom] = useState("");
-  const [flDateTo, setFlDateTo] = useState("");
+  const [flStatus, setFlStatus]     = useState("all");
+
+  // Advanced filter state
+  const [advOpen, setAdvOpen]       = useState(true);
+  const [advFilters, setAdvFilters] = useState([]);
+  const [advMatch, setAdvMatch]     = useState("all");
+
   const [colsOpen, setColsOpen] = useState(false);
 
-  // Reset columns when report type changes
   const onReportChange = (t) => { setReportType(t); setSelectedCols(REPORTS[t].cols.map(c => c.key)); setFlStatus("all"); setAdvFilters([]); };
-
   const toggleChannel = (k) => setFlChannels(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const toggleCol = (k) => setSelectedCols(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
 
-  // ============= ADVANCED FILTER BUILDER =============
-  // Each row: { id, field, operator, value, valueEnd }.
-  // Field type inferred from cfg.cols by `num` flag or key heuristic (date keys → date).
-  const [advOpen, setAdvOpen] = useState(false);
-  const [advFilters, setAdvFilters] = useState([]);
-  const [advMatch, setAdvMatch] = useState("all"); // all | any
-
-  const fieldType = (col) => {
-    if (!col) return "string";
-    if (col.key === "last_synced" || col.key === "date") return "date";
-    if (col.num) return "number";
-    return "string";
-  };
-  const opsFor = (type) => {
-    if (type === "number") return [{ v: "eq", l: "equals" }, { v: "neq", l: "not equals" }, { v: "gt", l: "greater than" }, { v: "gte", l: "≥" }, { v: "lt", l: "less than" }, { v: "lte", l: "≤" }, { v: "between", l: "between" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
-    if (type === "date")   return [{ v: "on_or_after", l: "on or after" }, { v: "on_or_before", l: "on or before" }, { v: "between", l: "between" }, { v: "in_last_days", l: "in last N days" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
-    return [{ v: "contains", l: "contains" }, { v: "not_contains", l: "does not contain" }, { v: "eq", l: "equals" }, { v: "neq", l: "not equals" }, { v: "starts", l: "starts with" }, { v: "ends", l: "ends with" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
-  };
-
-  const addFilter = () => {
-    const firstCol = cfg.cols[0];
-    setAdvFilters(prev => [...prev, { id: `f_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, field: firstCol.key, operator: opsFor(fieldType(firstCol))[0].v, value: "", valueEnd: "" }]);
-  };
-  const removeFilter = (id) => setAdvFilters(prev => prev.filter(f => f.id !== id));
-  const updateFilter = (id, patch) => setAdvFilters(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
-  const clearAllFilters = () => setAdvFilters([]);
-
-  const evalRule = (row, f) => {
-    const col = cfg.cols.find(c => c.key === f.field);
-    const type = fieldType(col);
-    const raw = row[f.field];
-    const v = raw === null || raw === undefined ? "" : raw;
-    const q = f.value; const q2 = f.valueEnd;
-    switch (f.operator) {
-      case "empty":    return v === "" || v === null || v === undefined;
-      case "notempty": return !(v === "" || v === null || v === undefined);
-      case "eq":       return type === "number" ? Number(v) === Number(q) : String(v).toLowerCase() === String(q).toLowerCase();
-      case "neq":      return type === "number" ? Number(v) !== Number(q) : String(v).toLowerCase() !== String(q).toLowerCase();
-      case "contains":     return String(v).toLowerCase().includes(String(q).toLowerCase());
-      case "not_contains": return !String(v).toLowerCase().includes(String(q).toLowerCase());
-      case "starts":       return String(v).toLowerCase().startsWith(String(q).toLowerCase());
-      case "ends":         return String(v).toLowerCase().endsWith(String(q).toLowerCase());
-      case "gt":  return Number(v) >  Number(q);
-      case "gte": return Number(v) >= Number(q);
-      case "lt":  return Number(v) <  Number(q);
-      case "lte": return Number(v) <= Number(q);
-      case "between":
-        if (type === "date") return String(v) >= String(q) && String(v) <= String(q2);
-        return Number(v) >= Number(q) && Number(v) <= Number(q2);
-      case "on_or_after":  return String(v) >= String(q);
-      case "on_or_before": return String(v) <= String(q);
-      case "in_last_days": {
-        const days = Number(q); if (!days) return true;
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-        try { return new Date(v) >= cutoff; } catch { return false; }
-      }
-      default: return true;
-    }
-  };
-  const passesAdvanced = (row) => {
-    if (advFilters.length === 0) return true;
-    if (advMatch === "any") return advFilters.some(f => evalRule(row, f));
-    return advFilters.every(f => evalRule(row, f));
-  };
-
-  // ---- Build report rows from source ----
   const rawRows = useMemo(() => {
     if (reportType === "listings") {
       return listings.filter(l => {
         if (!flChannels.has(l.channel)) return false;
         if (flStatus !== "all" && l.status !== flStatus) return false;
-        const p = products.find(pp => pp.id === l.master_id);
-        if (p && flBrand !== "all" && p.brand !== flBrand) return false;
-        if (p && flCategory !== "all" && p.category !== flCategory) return false;
-        const avail = availableForListing(l);
-        if (flStockMin !== "" && avail < Number(flStockMin)) return false;
-        if (flStockMax !== "" && avail > Number(flStockMax)) return false;
         return true;
-      }).map(l => ({
-        master_sku: l.master_sku, title: l.title, channel: l.channel, channel_sku: l.channel_sku, status: l.status,
-        price: l.price, stock: l.stock, blocked: blockedForChannel(l.master_id, l.channel), available: availableForListing(l),
-        units_sold_30d: l.units_sold_30d, revenue_30d: l.revenue_30d, last_synced: l.last_synced,
-      }));
+      }).map(l => {
+        const { units, revenue } = soldForListingInRange(l.master_id, l.channel, dateFrom, dateTo);
+        return { master_sku: l.master_sku, title: l.title, channel: l.channel, channel_sku: l.channel_sku, status: l.status, price: l.price, units_sold: units, revenue, last_synced: l.last_synced };
+      });
     }
     if (reportType === "revenue") {
       return orders.filter(o => {
         if (!flChannels.has(o.channel)) return false;
         if (flStatus !== "all" && o.status !== flStatus) return false;
-        if (flDateFrom && o.date < flDateFrom) return false;
-        if (flDateTo && o.date > flDateTo) return false;
+        if (dateFrom && o.date < dateFrom) return false;
+        if (dateTo && o.date > dateTo) return false;
         return true;
       }).map(o => {
         const state = ["placed","processing","shipped"].includes(o.status) ? "Pending" : o.status === "delivered" ? "Confirmed" : o.status === "returned" ? "Reversed" : "Excluded";
         return { channel_order_id: o.channel_order_id, channel: o.channel, customer: o.customer, status: o.status, units: orderQty(o), gross: orderTotal(o), revenue_state: state, date: o.date };
       });
     }
-    if (reportType === "stock") {
-      return products.filter(p => {
-        if (flBrand !== "all" && p.brand !== flBrand) return false;
-        if (flCategory !== "all" && p.category !== flCategory) return false;
-        if (flStatus !== "all" && p.status !== flStatus) return false;
-        const avail = availableStock(p.id);
-        if (flStockMin !== "" && avail < Number(flStockMin)) return false;
-        if (flStockMax !== "" && avail > Number(flStockMax)) return false;
-        return true;
-      }).map(p => ({
-        sku: p.sku, title: p.title, brand: p.brand, category: p.category, stock_mode: p.stock_mode,
-        stock: p.stock, blocked: blockedForProduct(p.id), available: availableStock(p.id),
-        channels_count: (p.channels || []).length, status: p.status,
-      }));
-    }
     if (reportType === "channel_summary") {
       return channels.filter(c => flChannels.has(c.key)).map(c => {
-        const rev = revenueByChannel[c.key] || { pending: 0, confirmed: 0, refunded: 0, net: 0, units: 0 };
-        return {
-          channel: c.name, listings: listings.filter(l => l.channel === c.key).length,
-          units: rev.units, pending: rev.pending, confirmed: rev.confirmed, refunded: rev.refunded, net: rev.net,
-        };
+        // Recompute channel totals against the selected date range
+        let pending = 0, confirmed = 0, refunded = 0, units = 0;
+        orders.forEach(o => {
+          if (o.channel !== c.key) return;
+          if (dateFrom && o.date < dateFrom) return;
+          if (dateTo && o.date > dateTo) return;
+          const t = orderTotal(o), q = orderQty(o);
+          if (["placed","processing","shipped"].includes(o.status)) { pending += t; units += q; }
+          else if (o.status === "delivered") { confirmed += t; units += q; }
+        });
+        returns.forEach(r => {
+          if (r.channel !== c.key || r.status !== "refunded") return;
+          if (dateFrom && r.date < dateFrom) return;
+          if (dateTo && r.date > dateTo) return;
+          refunded += (r.line_items || []).reduce((s, li) => s + li.refund_amount, 0);
+        });
+        return { channel: c.name, listings: listings.filter(l => l.channel === c.key).length, units, pending, confirmed, refunded, net: confirmed - refunded };
       });
     }
     return [];
-  }, [reportType, listings, orders, products, channels, flChannels, flStatus, flBrand, flCategory, flStockMin, flStockMax, flDateFrom, flDateTo, availableForListing, availableStock, blockedForProduct, blockedForChannel, orderTotal, orderQty, revenueByChannel]);
+  }, [reportType, listings, orders, returns, channels, flChannels, flStatus, dateFrom, dateTo, soldForListingInRange, orderTotal, orderQty]);
 
-  // Apply advanced filters on top of simple filters
-  const rows = useMemo(() => rawRows.filter(passesAdvanced), [rawRows, advFilters, advMatch]);
+  const rows = useMemo(() => applyFilters(rawRows, advFilters, advMatch, Object.fromEntries(cfg.cols.map(c => [c.key, c]))), [rawRows, advFilters, advMatch, cfg]);
 
-  // ---- CSV export ----
   const exportCsv = () => {
     if (rows.length === 0) { toast.error("Nothing to export — adjust filters"); return; }
     const useCols = cfg.cols.filter(c => selectedCols.includes(c.key));
     const header = useCols.map(c => `"${c.label.replace(/"/g, '""')}"`).join(",");
     const body = rows.map(r => useCols.map(c => {
-      const v = r[c.key];
-      if (v === null || v === undefined) return "";
+      const v = r[c.key]; if (v === null || v === undefined) return "";
       if (typeof v === "number") return v;
       return `"${String(v).replace(/"/g, '""')}"`;
     }).join(",")).join("\n");
     const csv = header + "\n" + body;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${reportType}_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = `${reportType}_${dateFrom}_to_${dateTo}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     toast.success(`Exported ${rows.length} rows to CSV`);
   };
 
-  const resetFilters = () => { setFlChannels(new Set(channels.map(c => c.key))); setFlStatus("all"); setFlBrand("all"); setFlCategory("all"); setFlStockMin(""); setFlStockMax(""); setFlDateFrom(""); setFlDateTo(""); };
-
-  // ---- Top summary widgets ----
-  const byChannel = channels.map((c) => ({
-    name: c.name.split(" ")[0], key: c.key, color: COLORS[c.key],
-    revenue: (revenueByChannel[c.key]?.confirmed || 0) + (revenueByChannel[c.key]?.pending || 0),
-    net: revenueByChannel[c.key]?.net || 0,
-    units: revenueByChannel[c.key]?.units || 0,
-  }));
+  const resetFilters = () => { setFlChannels(new Set(channels.map(c => c.key))); setFlStatus("all"); setAdvFilters([]); setDateFrom(daysAgo(30)); setDateTo(today()); };
 
   const uniqueBrands = Array.from(new Set(products.map(p => p.brand)));
   const uniqueCategories = Array.from(new Set(products.map(p => p.category)));
   const statusOptions = {
     listings: ["all", "active", "paused", "error"],
     revenue: ["all", "placed", "processing", "shipped", "delivered", "cancelled", "returned"],
-    stock: ["all", "listed", "draft", "unlisted"],
     channel_summary: ["all"],
   }[reportType];
 
   const useCols = cfg.cols.filter(c => selectedCols.includes(c.key));
 
+  // Top-KPI summary for the picked range
+  const rangeSummary = useMemo(() => {
+    let confirmed = 0, pending = 0, refunded = 0, unitsDelivered = 0;
+    orders.forEach(o => {
+      if (dateFrom && o.date < dateFrom) return;
+      if (dateTo && o.date > dateTo) return;
+      const t = orderTotal(o), q = orderQty(o);
+      if (["placed","processing","shipped"].includes(o.status)) pending += t;
+      else if (o.status === "delivered") { confirmed += t; unitsDelivered += q; }
+    });
+    returns.forEach(r => {
+      if (r.status !== "refunded") return;
+      if (dateFrom && r.date < dateFrom) return;
+      if (dateTo && r.date > dateTo) return;
+      refunded += (r.line_items || []).reduce((s, li) => s + li.refund_amount, 0);
+    });
+    return { confirmed, pending, refunded, net: confirmed - refunded, unitsDelivered };
+  }, [orders, returns, dateFrom, dateTo, orderTotal, orderQty]);
+
   return (
     <>
-      <Topbar title="Analytics" breadcrumb="Overview" subtitle="Live revenue attribution, stock signals, and a custom report builder." />
+      <Topbar title="Analytics" breadcrumb="Overview" subtitle="All numbers below reflect your chosen date range. Stock lives on Listings & Channels." />
       <div className="px-8 py-6 space-y-6">
 
-        {/* Revenue KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-[var(--border)]">
-          <div className="p-4 border-r border-b lg:border-b-0 border-[var(--border)] bg-[#FFF7E6]" data-testid="an-pending">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Pending Revenue</div>
-            <div className="text-2xl font-display font-black tabular mt-1 text-[var(--warning)]">{fmt(revenueSummary.pending)}</div>
+        {/* GLOBAL DATE RANGE (drives everything) */}
+        <div className="border-2 border-[var(--primary)] bg-[#F0F4FF] p-4 flex items-center gap-4 flex-wrap" data-testid="date-range-banner">
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-[var(--primary)]" />
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Date Range · Global filter</div>
+              <div className="font-display font-black text-[14px] tracking-tight">Every metric below is scoped to this range</div>
+            </div>
           </div>
-          <div className="p-4 border-r border-b lg:border-b-0 border-[var(--border)] bg-[#E6F4EA]" data-testid="an-confirmed">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Confirmed Revenue</div>
-            <div className="text-2xl font-display font-black tabular mt-1 text-[var(--success)]">{fmt(revenueSummary.confirmed)}</div>
-          </div>
-          <div className="p-4 border-r border-b sm:border-b-0 border-[var(--border)] bg-[#FDECEA]" data-testid="an-refunded">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Refunded</div>
-            <div className="text-2xl font-display font-black tabular mt-1 text-[var(--danger)]">−{fmt(revenueSummary.refunded)}</div>
-          </div>
-          <div className="p-4" data-testid="an-net">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Net Revenue</div>
-            <div className="text-2xl font-display font-black tabular mt-1">{fmt(revenueSummary.net)}</div>
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <label className="text-[11px] font-medium text-[var(--fg-muted)]">From</label>
+            <input type="date" data-testid="dr-from" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="border border-[var(--border)] px-2 py-1.5 text-[12px] tabular bg-white" />
+            <label className="text-[11px] font-medium text-[var(--fg-muted)]">To</label>
+            <input type="date" data-testid="dr-to"   value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="border border-[var(--border)] px-2 py-1.5 text-[12px] tabular bg-white" />
+            <div className="flex border border-[var(--border)] divide-x divide-[var(--border)] bg-white">
+              {[[7, "7d"], [30, "30d"], [90, "90d"], [365, "1y"]].map(([n, label]) => (
+                <button key={n} data-testid={`dr-preset-${label}`} onClick={() => { setDateFrom(daysAgo(n)); setDateTo(today()); }} className="px-2.5 py-1.5 text-[11px] hover:bg-[var(--surface)]">{label}</button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Charts */}
+        {/* Range KPI strip */}
+        <div className="grid grid-cols-2 md:grid-cols-5 border border-[var(--border)]">
+          <div className="p-4 border-r border-[var(--border)]" data-testid="rs-confirmed"><div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Confirmed</div><div className="text-2xl font-display font-black tabular mt-1 text-[var(--success)]">{fmt(rangeSummary.confirmed)}</div></div>
+          <div className="p-4 border-r border-[var(--border)]" data-testid="rs-pending"  ><div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Pending</div>  <div className="text-2xl font-display font-black tabular mt-1 text-[var(--warning)]">{fmt(rangeSummary.pending)}</div></div>
+          <div className="p-4 border-r border-[var(--border)]" data-testid="rs-refunded" ><div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Refunded</div> <div className="text-2xl font-display font-black tabular mt-1 text-[var(--danger)]">−{fmt(rangeSummary.refunded)}</div></div>
+          <div className="p-4 border-r border-[var(--border)]" data-testid="rs-net"      ><div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Net</div>      <div className="text-2xl font-display font-black tabular mt-1">{fmt(rangeSummary.net)}</div></div>
+          <div className="p-4" data-testid="rs-units"><div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Units Delivered</div><div className="text-2xl font-display font-black tabular mt-1">{rangeSummary.unitsDelivered}</div></div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 border border-[var(--border)] p-6 bg-white">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Revenue Trend · 7d</div>
+            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Revenue Trend</div>
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={REVENUE_TREND}>
-                <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#002FA7" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#002FA7" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+                <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#002FA7" stopOpacity={0.3} /><stop offset="100%" stopColor="#002FA7" stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="2 2" stroke="#E5E7EB" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fontFamily: "IBM Plex Mono" }} stroke="#9CA3AF" />
                 <YAxis tick={{ fontSize: 11, fontFamily: "IBM Plex Mono" }} stroke="#9CA3AF" tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
@@ -314,19 +233,12 @@ export default function Analytics() {
             <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Net Revenue by Channel</div>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={byChannel} dataKey="net" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
-                  {byChannel.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                <Pie data={channels.map(c => ({ name: c.name.split(" ")[0], value: revenueByChannel[c.key]?.net || 0, color: COLORS[c.key] }))} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={2}>
+                  {channels.map((c, i) => <Cell key={i} fill={COLORS[c.key]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ fontSize: 12 }} formatter={(v) => fmt(v)} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {byChannel.map(b => (
-                <div key={b.name} className="flex items-center gap-1.5 text-[11px]">
-                  <span className="w-2 h-2" style={{ background: b.color }}></span>{b.name}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -344,7 +256,6 @@ export default function Analytics() {
           </div>
 
           <div className="p-6 space-y-4">
-            {/* Report type + column picker */}
             <div className="flex items-center gap-4 flex-wrap">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Report Type</label>
@@ -370,8 +281,7 @@ export default function Analytics() {
               <div className="ml-auto text-[12px] text-[var(--fg-muted)] tabular self-end pb-1.5">{rows.length} rows</div>
             </div>
 
-            {/* Filters */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-[var(--border)]">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-[var(--border)]">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Channels</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -380,153 +290,42 @@ export default function Analytics() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Status</label>
                 <SearchableSelect value={flStatus} onChange={setFlStatus} options={statusOptions.map(s => ({ value: s, label: s }))} testid="rb-status" />
               </div>
-
-              {(reportType === "listings" || reportType === "stock") && (
-                <>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Brand</label>
-                    <SearchableSelect value={flBrand} onChange={setFlBrand} options={[{ value: "all", label: "All brands" }, ...uniqueBrands.map(b => ({ value: b, label: b }))]} testid="rb-brand" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Category</label>
-                    <SearchableSelect value={flCategory} onChange={setFlCategory} options={[{ value: "all", label: "All categories" }, ...uniqueCategories.map(c => ({ value: c, label: c }))]} testid="rb-category" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Available Stock (min – max)</label>
-                    <div className="flex gap-1.5">
-                      <input type="number" value={flStockMin} onChange={e => setFlStockMin(e.target.value)} placeholder="min" data-testid="rb-stock-min" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px] tabular" />
-                      <input type="number" value={flStockMax} onChange={e => setFlStockMax(e.target.value)} placeholder="max" data-testid="rb-stock-max" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px] tabular" />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {reportType === "revenue" && (
-                <>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Date From</label>
-                    <input type="date" value={flDateFrom} onChange={e => setFlDateFrom(e.target.value)} data-testid="rb-date-from" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px]" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Date To</label>
-                    <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)} data-testid="rb-date-to" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px]" />
-                  </div>
-                </>
-              )}
+              <div className="text-[11px] text-[var(--fg-muted)] self-end pb-1.5">Report auto-scoped by the Date Range banner above.</div>
             </div>
 
-            {/* Preview Table */}
-            <div className="border border-[var(--border)] bg-[var(--surface)] mb-3">
-              <button onClick={() => setAdvOpen(o => !o)} data-testid="adv-toggle" className={`w-full flex items-center justify-between px-4 py-2.5 text-[12px] font-medium hover:bg-white transition-colors ${advFilters.length > 0 ? "bg-[#F0F4FF]" : ""}`}>
-                <span className="flex items-center gap-1.5"><SlidersHorizontal size={12} className="text-[var(--primary)]" />Advanced Filters {advFilters.length > 0 && <span className="ml-1 px-1.5 py-0.5 bg-[var(--primary)] text-white text-[10px] tabular">{advFilters.length}</span>}</span>
-                <span className="flex items-center gap-2 text-[11px] text-[var(--fg-muted)]">
-                  {advFilters.length > 0 && <span>Match: <b className="uppercase">{advMatch === "all" ? "ALL (AND)" : "ANY (OR)"}</b></span>}
-                  <ChevronDown size={12} className={`transition-transform ${advOpen ? "rotate-180" : ""}`} />
-                </span>
-              </button>
-              {advOpen && (
-                <div className="p-4 border-t border-[var(--border)] bg-white space-y-3" data-testid="adv-panel">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Match</span>
-                    <div className="flex border border-[var(--border)] divide-x divide-[var(--border)]">
-                      <button data-testid="adv-match-all" onClick={() => setAdvMatch("all")} className={`px-2.5 py-1 text-[11px] ${advMatch === "all" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}>ALL (AND)</button>
-                      <button data-testid="adv-match-any" onClick={() => setAdvMatch("any")} className={`px-2.5 py-1 text-[11px] ${advMatch === "any" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}>ANY (OR)</button>
-                    </div>
-                    <div className="ml-auto flex items-center gap-2">
-                      {advFilters.length > 0 && <button onClick={clearAllFilters} data-testid="adv-clear" className="px-2.5 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)]">Clear all</button>}
-                      <button onClick={addFilter} data-testid="adv-add" className="px-2.5 py-1 text-[11px] bg-[var(--primary)] text-white flex items-center gap-1"><Plus size={11} />Add filter</button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {advFilters.map((f, i) => {
-                      const col = cfg.cols.find(c => c.key === f.field);
-                      const type = fieldType(col);
-                      const ops = opsFor(type);
-                      const needsValue = !["empty", "notempty"].includes(f.operator);
-                      const needsRangeEnd = f.operator === "between";
-                      const isNumber = type === "number" && !needsRangeEnd && f.operator !== "in_last_days";
-                      const isDateInput = type === "date" && !["in_last_days", "empty", "notempty"].includes(f.operator);
-                      return (
-                        <div key={f.id} className="flex items-center gap-2 flex-wrap border border-[var(--border)] p-2 bg-[var(--surface)]" data-testid={`adv-row-${i}`}>
-                          <span className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold w-8">{i === 0 ? "Where" : advMatch.toUpperCase()}</span>
-                          <SearchableSelect value={f.field} onChange={(v) => { const nc = cfg.cols.find(c => c.key === v); updateFilter(f.id, { field: v, operator: opsFor(fieldType(nc))[0].v, value: "", valueEnd: "" }); }} options={cfg.cols.map(c => ({ value: c.key, label: c.label }))} testid={`adv-field-${i}`} className="min-w-[160px]" />
-                          <SearchableSelect value={f.operator} onChange={(v) => updateFilter(f.id, { operator: v, value: "", valueEnd: "" })} options={ops.map(o => ({ value: o.v, label: o.l }))} testid={`adv-op-${i}`} className="min-w-[150px]" />
-                          {needsValue && (
-                            f.operator === "in_last_days" ? (
-                              <input type="number" min="1" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="N days" className="w-24 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
-                            ) : isDateInput ? (
-                              <input type="date" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} className="border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
-                            ) : isNumber ? (
-                              <input type="number" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="value" className="w-28 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
-                            ) : (
-                              <input value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="value" className="min-w-[140px] border border-[var(--border)] px-2 py-1 text-[12px]" data-testid={`adv-val-${i}`} />
-                            )
-                          )}
-                          {needsRangeEnd && (
-                            <>
-                              <span className="text-[11px] text-[var(--fg-muted)]">and</span>
-                              {type === "date"
-                                ? <input type="date" value={f.valueEnd} onChange={e => updateFilter(f.id, { valueEnd: e.target.value })} className="border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-valend-${i}`} />
-                                : <input type="number" value={f.valueEnd} onChange={e => updateFilter(f.id, { valueEnd: e.target.value })} className="w-28 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-valend-${i}`} />
-                              }
-                            </>
-                          )}
-                          <button onClick={() => removeFilter(f.id)} data-testid={`adv-rm-${i}`} className="ml-auto p-1.5 hover:bg-white text-[var(--fg-muted)] hover:text-[var(--danger)]"><X size={12} /></button>
-                        </div>
-                      );
-                    })}
-                    {advFilters.length === 0 && (
-                      <div className="border border-dashed border-[var(--border)] p-4 text-center text-[12px] text-[var(--fg-muted)]">
-                        No advanced filters yet — click <b>+ Add filter</b> to build rules like <span className="tabular">available &gt; 100</span>, <span className="tabular">title contains &quot;runner&quot;</span>, or <span className="tabular">last_synced in last 7 days</span>.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Advanced filter (highly visible now — starts open) */}
+            <AdvancedFilterPanel fields={cfg.cols} filters={advFilters} setFilters={setAdvFilters} match={advMatch} setMatch={setAdvMatch} open={advOpen} setOpen={setAdvOpen} testidPrefix="adv" />
 
             {/* Preview Table */}
             <div className="border border-[var(--border)] overflow-x-auto" data-testid="rb-preview">
               <table className="w-full text-[12px]">
                 <thead className="bg-[var(--surface)]">
                   <tr className="border-b border-[var(--border)]">
-                    {useCols.map(c => (
-                      <th key={c.key} className={`px-3 py-2 text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium ${c.num ? "text-right" : "text-left"}`}>{c.label}</th>
-                    ))}
+                    {useCols.map(c => (<th key={c.key} className={`px-3 py-2 text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium ${c.num ? "text-right" : "text-left"}`}>{c.label}</th>))}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.slice(0, 40).map((r, i) => (
                     <tr key={i} className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--surface)]">
-                      {useCols.map(c => (
-                        <td key={c.key} className={`px-3 py-1.5 ${c.num ? "text-right tabular" : ""}`}>
-                          {c.money && typeof r[c.key] === "number" ? fmt(r[c.key]) : String(r[c.key] ?? "")}
-                        </td>
-                      ))}
+                      {useCols.map(c => (<td key={c.key} className={`px-3 py-1.5 ${c.num ? "text-right tabular" : ""}`}>{c.money && typeof r[c.key] === "number" ? fmt(r[c.key]) : String(r[c.key] ?? "")}</td>))}
                     </tr>
                   ))}
-                  {rows.length === 0 && (
-                    <tr><td colSpan={useCols.length} className="px-3 py-6 text-center text-[var(--fg-muted)]">No rows match — adjust filters.</td></tr>
-                  )}
+                  {rows.length === 0 && (<tr><td colSpan={useCols.length} className="px-3 py-6 text-center text-[var(--fg-muted)]">No rows match — adjust filters or date range.</td></tr>)}
                 </tbody>
               </table>
-              {rows.length > 40 && (
-                <div className="px-3 py-2 text-[11px] text-[var(--fg-muted)] bg-[var(--surface)] border-t border-[var(--border)]">Showing 40 of {rows.length} rows · export CSV for full dataset</div>
-              )}
+              {rows.length > 40 && <div className="px-3 py-2 text-[11px] text-[var(--fg-muted)] bg-[var(--surface)] border-t border-[var(--border)]">Showing 40 of {rows.length} rows · export CSV for full dataset</div>}
             </div>
           </div>
         </div>
 
-        {/* Channel Bars */}
         <div className="border border-[var(--border)] p-6 bg-white">
-          <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Units Sold by Channel</div>
+          <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Units Delivered by Channel · Range</div>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={byChannel}>
+            <BarChart data={channels.map(c => ({ name: c.name.split(" ")[0], units: rows.filter(r => r.channel === c.key || r.channel === c.name).reduce((s, r) => s + (r.units || r.units_sold || 0), 0) }))}>
               <CartesianGrid strokeDasharray="2 2" stroke="#E5E7EB" />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
               <YAxis tick={{ fontSize: 11, fontFamily: "IBM Plex Mono" }} stroke="#9CA3AF" />

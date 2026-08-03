@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 9: Verified new Analytics date-range banner, Advanced Filter open by default, Stock report removed, dynamic Sold column; Master Products Delivered column + Advanced Filter panel; Dashboard MAX_CUSTOM=8 cap + Top Sellers by Channel; Request History user + date-range filter; and FastAPI backend CRUD endpoints. All 9 backend pytest cases pass; all frontend items verified via Playwright.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["Header subtitle still says 'Add up to 4 custom dashlets' although cap is now 8 (visible under 'Command Center' heading). Update copy to 8."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iteration_9.xml"],
+  "action_items": ["Minor: update Dashboard subtitle copy from '4 custom dashlets' to '8 custom dashlets' to match new cap."],
+  "critical_code_review_comments": [
+    "server.py loads /api routes inside try/except that only WARNS on failure — a real import error would silently produce 404s for the whole domain surface. Consider letting startup fail hard so misconfig is obvious.",
+    "routes.py: `assert new` inside order_status will raise AssertionError → 500 instead of a clean 400 when status is missing. Use HTTPException.",
+    "routes.py has no auth/RBAC on any endpoint — everything is anonymously writable. Fine for MVP but worth flagging.",
+    "MasterProducts.jsx / Analytics.jsx are large — consider extracting AdvancedFilterPanel usage into dedicated hooks once endpoints wire in."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None — verified GETs return empty arrays; POST /api/products roundtrip creates + fetches + cleans up its own row.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Frontend still reads from StoreContext seed; backend collections are empty except transient POSTs. delivered-mp_001=3 matches expected (ord_10243 qty1 + ord_10248 qty3 − ret_303 refunded qty1). All new data-testids present: date-range-banner, dr-from/to, dr-preset-7d/30d/90d/1y, adv-panel, rb-type-trigger (SearchableSelect renders inline listbox — no Stock option), delivered-mp_XXX, mp-adv-btn/panel/add, dash-add-dashlet with (N/8), channel-mix, top-channel-{amazon,shopify,flipkart,woocommerce}, rh-user/from/to.",
+  "rca of the issue": "N/A — no bugs found. Only cosmetic: dashboard subtitle text lag."
+}

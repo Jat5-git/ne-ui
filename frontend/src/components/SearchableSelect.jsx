@@ -13,7 +13,7 @@ import { ChevronDown, X, Check, Search } from "lucide-react";
  *   className
  *   allowClear
  */
-export default function SearchableSelect({ value, onChange, options, placeholder = "Select…", testid, size = "sm", className = "", allowClear = false }) {
+export default function SearchableSelect({ value, onChange, options, placeholder = "Select…", testid, size = "sm", className = "", allowClear = false, maxDisplay = 25 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const rootRef = useRef(null);
@@ -27,7 +27,9 @@ export default function SearchableSelect({ value, onChange, options, placeholder
   useEffect(() => { if (!open) setQ(""); }, [open]);
 
   const normalized = options.map(o => (typeof o === "string" ? { value: o, label: o } : o));
-  const filtered = q ? normalized.filter(o => o.label.toLowerCase().includes(q.toLowerCase())) : normalized;
+  const matches = q ? normalized.filter(o => o.label.toLowerCase().includes(q.toLowerCase())) : normalized;
+  const truncated = !q && matches.length > maxDisplay;
+  const filtered = truncated ? matches.slice(0, maxDisplay) : matches;
   const selected = normalized.find(o => o.value === value);
 
   const height = size === "md" ? "py-2" : "py-1.5";
@@ -56,6 +58,7 @@ export default function SearchableSelect({ value, onChange, options, placeholder
                 {o.hint && <span className="text-[10px] text-[var(--fg-muted)] tabular">{o.hint}</span>}
               </button>
             ))}
+            {truncated && <div className="px-3 py-2 text-[10px] text-[var(--fg-muted)] tabular border-t border-[var(--border)] bg-[var(--surface)]">Showing first {maxDisplay} of {matches.length}. Type to search all.</div>}
             {filtered.length === 0 && <div className="px-3 py-4 text-[12px] text-[var(--fg-muted)] text-center">No matches</div>}
           </div>
         </div>

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill, SyncBadge } from "@/components/Pills";
-import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers, Boxes, Split, Lock } from "lucide-react";
+import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers, Boxes, Split, Lock, SlidersHorizontal } from "lucide-react";
 import CsvImportWizard from "@/components/CsvImportWizard";
 import ListChannelDrawer from "@/components/ListChannelDrawer";
 import ProductListingsDrawer from "@/components/ProductListingsDrawer";
@@ -11,11 +11,12 @@ import StockAllocationDrawer from "@/components/StockAllocationDrawer";
 import NewProductModal from "@/components/NewProductModal";
 import EditProductModal from "@/components/EditProductModal";
 import CreateSegmentModal from "@/components/CreateSegmentModal";
+import AdvancedFilterPanel, { applyFilters } from "@/components/AdvancedFilterPanel";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 export default function MasterProducts() {
-  const { products, getVariants, blockedForProduct, availableStock } = useStore();
+  const { products, getVariants, blockedForProduct, availableStock, deliveredForProduct } = useStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -27,14 +28,33 @@ export default function MasterProducts() {
   const [editProduct, setEditProduct] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [segmentModalOpen, setSegmentModalOpen] = useState(false);
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advFilters, setAdvFilters] = useState([]);
+  const [advMatch, setAdvMatch] = useState("all");
+
+  const MP_FIELDS = [
+    { key: "sku",       label: "SKU",        type: "string" },
+    { key: "title",     label: "Title",      type: "string" },
+    { key: "brand",     label: "Brand",      type: "string" },
+    { key: "category",  label: "Category",   type: "string" },
+    { key: "mrp",       label: "MRP",        type: "number" },
+    { key: "cost",      label: "Cost",       type: "number" },
+    { key: "stock",     label: "Stock",      type: "number" },
+    { key: "available", label: "Available",  type: "number" },
+    { key: "blocked",   label: "Blocked",    type: "number" },
+    { key: "delivered", label: "Delivered",  type: "number" },
+    { key: "status",    label: "Status",     type: "string" },
+    { key: "updated",   label: "Updated",    type: "date" },
+  ];
 
   const filtered = useMemo(() => {
-    return products.filter(p => {
+    const base = products.map(p => ({ ...p, available: availableStock(p.id), blocked: blockedForProduct(p.id), delivered: deliveredForProduct(p.id) })).filter(p => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (query && !p.title.toLowerCase().includes(query.toLowerCase()) && !p.sku.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     });
-  }, [products, query, statusFilter]);
+    return applyFilters(base, advFilters, advMatch, Object.fromEntries(MP_FIELDS.map(f => [f.key, f])));
+  }, [products, query, statusFilter, advFilters, advMatch, availableStock, blockedForProduct, deliveredForProduct]);
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -93,7 +113,10 @@ export default function MasterProducts() {
             ))}
           </div>
           <div className="ml-auto text-[12px] text-[var(--fg-muted)] tabular">{filtered.length} products</div>
+          <button onClick={() => setAdvOpen(o => !o)} data-testid="mp-adv-btn" className={`px-3 py-1.5 text-[12px] border flex items-center gap-1.5 transition-colors ${advFilters.length > 0 ? "border-[var(--primary)] bg-[#F0F4FF] text-[var(--primary)] font-medium" : "border-[var(--border)] hover:bg-[var(--surface)]"}`}><SlidersHorizontal size={12} />Advanced{advFilters.length > 0 ? ` (${advFilters.length})` : ""}</button>
         </div>
+
+        {advOpen && <AdvancedFilterPanel fields={MP_FIELDS} filters={advFilters} setFilters={setAdvFilters} match={advMatch} setMatch={setAdvMatch} open={true} setOpen={() => setAdvOpen(false)} testidPrefix="mp-adv" />}
 
         {selected.size > 0 && (
           <div className="flex items-center justify-between border border-[var(--primary)] bg-[#F0F4FF] px-4 py-2.5" data-testid="bulk-bar">
@@ -118,6 +141,7 @@ export default function MasterProducts() {
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Blocked</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Available</th>
+                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]" title="Total delivered orders minus returns">Delivered</th>
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Variants</th>
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sync Status</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)] w-64">Actions</th>
@@ -174,6 +198,9 @@ export default function MasterProducts() {
                   <td className={`p-3 text-right tabular font-medium ${available === 0 ? "text-[var(--danger)]" : "text-[var(--success)]"}`} data-testid={`available-${p.id}`} title="On-hand stock − blocked">
                     {available}
                   </td>
+                  <td className="p-3 text-right tabular font-medium" data-testid={`delivered-${p.id}`} title="Delivered orders net of received/refunded returns">
+                    {deliveredForProduct(p.id)}
+                  </td>
                   <td className="p-3">
                     {vs.length > 0 ? (
                       <button data-testid={`open-variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 border border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors">
@@ -218,7 +245,7 @@ export default function MasterProducts() {
                 </tr>
               );})}
               {filtered.length === 0 && (
-                <tr><td colSpan={11} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
+                <tr><td colSpan={12} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
               )}
             </tbody>
           </table>

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
-import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3, Edit3, PackageX } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3, Edit3, PackageX, SlidersHorizontal } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import EditListingModal from "@/components/EditListingModal";
@@ -161,6 +161,9 @@ export default function ListingsAndChannels() {
             <option value="low">Low (≤ 10)</option>
             <option value="out">Out of stock</option>
           </select>
+          <button onClick={() => { toast.info("Advanced filter is available on Analytics · Master Products for now"); }} data-testid="lc-adv-btn" className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5"><SlidersHorizontal size={12} />Advanced</button>
+        </div>
+
           <div className="flex items-center border border-[var(--border)] divide-x divide-[var(--border)]">
             <button data-testid="view-grouped" onClick={() => setView("grouped")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "grouped" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><LayoutGrid size={12} />Grouped</button>
             <button data-testid="view-flat" onClick={() => setView("flat")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "flat" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><Rows3 size={12} />Flat</button>
@@ -175,7 +178,6 @@ export default function ListingsAndChannels() {
               </div>
             )}
           </div>
-        </div>
 
         {view === "grouped" ? (
           <div className="border border-[var(--border)] bg-white overflow-x-auto">

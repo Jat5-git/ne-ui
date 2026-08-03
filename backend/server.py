@@ -69,6 +69,13 @@ async def get_status_checks():
 # Include the router in the main app
 app.include_router(api_router)
 
+# Domain routes (products, listings, orders, returns, segments, requests, users, alerts)
+try:
+    from routes import router as domain_router
+    app.include_router(domain_router)
+except Exception as _e:
+    logging.getLogger(__name__).warning(f"domain routes not loaded: {_e}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

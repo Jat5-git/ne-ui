@@ -118,9 +118,10 @@ function DashletEditor({ dashlet, onSave, onClose }) {
 }
 
 export default function Dashboard() {
-  const { listings, channels, auditLog, products } = useStore();
+  const { listings, channels, auditLog, products, topProductsByChannel } = useStore();
   const totalListings = listings.length;
   const draftCount = products.filter(p => p.status === "draft" || p.status === "unlisted").length;
+  const topByChannel = topProductsByChannel(5);
 
   const byChannel = channels.map(c => ({
     name: c.name.split(" ")[0],
@@ -144,7 +145,7 @@ export default function Dashboard() {
     { id: "cd-4", metric: "low_stock",         range: "30d", channel: "all",     label: "" },
   ]);
   const [editing, setEditing] = useState(null); // dashlet being edited
-  const MAX_CUSTOM = 4;
+  const MAX_CUSTOM = 8;
 
   const openEdit = (dashlet) => setEditing({ ...dashlet });
   const saveEdit = (updated) => {
@@ -236,16 +237,28 @@ export default function Dashboard() {
           </div>
 
           <div className="border border-[var(--border)] bg-white p-6" data-testid="channel-mix">
-            <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Channel Mix</div>
-            <div className="font-display text-lg font-black tracking-tight mt-1 mb-4">Revenue by channel</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={byChannel} layout="vertical" margin={{ left: 0 }}>
-                <XAxis type="number" tick={{ fontSize: 10, fontFamily: "IBM Plex Mono" }} stroke="#9CA3AF" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#6B7280" width={70} />
-                <Tooltip contentStyle={{ fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 2 }} />
-                <Bar dataKey="revenue" fill="#002FA7" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Top Sellers by Channel</div>
+            <div className="font-display text-lg font-black tracking-tight mt-1 mb-4">Most sold · top 5 each</div>
+            <div className="space-y-4">
+              {channels.filter(c => c.status === "connected" || (topByChannel[c.key] || []).length > 0).map(c => {
+                const rows = topByChannel[c.key] || [];
+                return (
+                  <div key={c.id} data-testid={`top-channel-${c.key}`}>
+                    <div className="flex items-center gap-1.5 mb-1.5"><ChannelChip channel={c.key} /><span className="text-[11px] font-medium">{c.name.split(" ")[0]}</span></div>
+                    {rows.length === 0
+                      ? <div className="text-[11px] text-[var(--fg-muted)] pl-2">No deliveries yet</div>
+                      : <div className="space-y-1">{rows.map((r, i) => (
+                          <div key={r.master_id} className="flex items-center gap-2 text-[11px] pl-2">
+                            <span className="tabular text-[var(--fg-muted)] w-4">#{i + 1}</span>
+                            <span className="flex-1 truncate">{r.product.title}</span>
+                            <span className="tabular font-medium">{r.qty}u</span>
+                          </div>
+                        ))}</div>
+                    }
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 

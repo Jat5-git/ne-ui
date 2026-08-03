@@ -2,17 +2,25 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { Search, CheckCircle2, XCircle, Clock } from "lucide-react";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function RequestHistory() {
-  const { requestHistory } = useStore();
+  const { requestHistory, users } = useStore();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const filtered = useMemo(() => requestHistory.filter(r => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (userFilter !== "all" && r.actor !== userFilter) return false;
+    const date = (r.started_at || "").slice(0, 10);
+    if (dateFrom && date < dateFrom) return false;
+    if (dateTo && date > dateTo) return false;
     if (q && !r.action.toLowerCase().includes(q.toLowerCase()) && !r.target.toLowerCase().includes(q.toLowerCase()) && !(r.detail || "").toLowerCase().includes(q.toLowerCase()) && !r.actor.toLowerCase().includes(q.toLowerCase())) return false;
     return true;
-  }), [requestHistory, q, statusFilter]);
+  }), [requestHistory, q, statusFilter, userFilter, dateFrom, dateTo]);
 
   const duration = (r) => {
     const s = new Date(r.started_at.replace(" ", "T"));
@@ -38,9 +46,16 @@ export default function RequestHistory() {
             <Search size={13} className="text-[var(--fg-muted)]" />
             <input data-testid="rh-search" value={q} onChange={e => setQ(e.target.value)} placeholder="Action, target, actor…" className="flex-1 text-[13px] outline-none bg-transparent" />
           </div>
+          <div className="min-w-[160px]">
+            <SearchableSelect value={userFilter} onChange={setUserFilter} options={[{ value: "all", label: "All users" }, ...users.map(u => ({ value: u, label: u }))]} testid="rh-user" placeholder="All users" />
+          </div>
           <select data-testid="rh-status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-[var(--border)] px-2.5 py-1.5 text-[12px] bg-white">
             <option value="all">All statuses</option><option value="success">Success</option><option value="error">Error</option>
           </select>
+          <label className="text-[11px] font-medium text-[var(--fg-muted)]">From</label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} data-testid="rh-from" className="border border-[var(--border)] px-2 py-1.5 text-[12px] tabular bg-white" />
+          <label className="text-[11px] font-medium text-[var(--fg-muted)]">To</label>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} data-testid="rh-to" className="border border-[var(--border)] px-2 py-1.5 text-[12px] tabular bg-white" />
           <div className="ml-auto text-[12px] text-[var(--fg-muted)] tabular">{filtered.length} requests</div>
         </div>
         <div className="border border-[var(--border)] bg-white overflow-x-auto">

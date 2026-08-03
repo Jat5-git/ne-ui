@@ -153,7 +153,83 @@ export const StoreProvider = ({ children }) => {
     return { mode: "allocated", total: p.stock, allocations, unallocated: Math.max(0, p.stock - allocated_sum), channels_visible: rows.map(r => r.channel) };
   }, [products, listings]);
 
-  // -------------------- ALERTS (derived) --------------------
+  // -------------------- DELIVERED / RETURNED counters (order-driven, date-aware) --------------------
+  // deliveredIndex: qty delivered per (product, channel) — used by Master Products "Delivered" column.
+  // Returns received/refunded net-off from delivered totals so the number reflects actual sold units.
+  const deliveredIndex = useMemo(() => {
+    const map = {};
+    orders.forEach(o => {
+      if (o.status !== DELIVERED_STATUS) return;
+      (o.line_items || []).forEach(li => {
+        if (!map[li.master_id]) map[li.master_id] = { total: 0, byChannel: {}, byDate: [] };
+        map[li.master_id].total += li.qty;
+        map[li.master_id].byChannel[o.channel] = (map[li.master_id].byChannel[o.channel] || 0) + li.qty;
+        map[li.master_id].byDate.push({ date: o.date, qty: li.qty, channel: o.channel, unit_price: li.unit_price });
+      });
+    });
+    // Subtract restocked returns
+    returns.forEach(r => {
+      if (!RESTOCKING_RETURN.includes(r.status)) return;
+      (r.line_items || []).forEach(li => {
+        if (!map[li.master_id]) return;
+        map[li.master_id].total = Math.max(0, map[li.master_id].total - li.qty);
+        map[li.master_id].byChannel[r.channel] = Math.max(0, (map[li.master_id].byChannel[r.channel] || 0) - li.qty);
+      });
+    });
+    return map;
+  }, [orders, returns]);
+
+  const deliveredForProduct = useCallback((productId) => deliveredIndex[productId]?.total || 0, [deliveredIndex]);
+  const deliveredForChannel = useCallback((productId, channel) => deliveredIndex[productId]?.byChannel[channel] || 0, [deliveredIndex]);
+
+  // Sold + revenue for a listing scoped to a date range (from/to are ISO strings YYYY-MM-DD)
+  const soldForListingInRange = useCallback((masterId, channel, from, to) => {
+    let units = 0, revenue = 0;
+    orders.forEach(o => {
+      if (o.status !== DELIVERED_STATUS) return;
+      if (channel && o.channel !== channel) return;
+      if (from && o.date < from) return;
+      if (to && o.date > to) return;
+      (o.line_items || []).forEach(li => {
+        if (li.master_id !== masterId) return;
+        units += li.qty;
+        revenue += li.qty * li.unit_price;
+      });
+    });
+    return { units, revenue };
+  }, [orders]);
+
+  // Top N products sold per channel (based on delivered qty, all-time)
+  const topProductsByChannel = useCallback((n = 5) => {
+    const acc = {};
+    orders.forEach(o => {
+      if (o.status !== DELIVERED_STATUS) return;
+      if (!acc[o.channel]) acc[o.channel] = {};
+      (o.line_items || []).forEach(li => {
+        if (!acc[o.channel][li.master_id]) acc[o.channel][li.master_id] = { qty: 0, revenue: 0 };
+        acc[o.channel][li.master_id].qty += li.qty;
+        acc[o.channel][li.master_id].revenue += li.qty * li.unit_price;
+      });
+    });
+    const result = {};
+    Object.entries(acc).forEach(([ch, byProd]) => {
+      result[ch] = Object.entries(byProd)
+        .map(([pid, v]) => ({ master_id: pid, ...v, product: products.find(p => p.id === pid) }))
+        .filter(x => x.product)
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, n);
+    });
+    return result;
+  }, [orders, products]);
+
+  // Unique users (system-wide) for RequestHistory filter — derived from actors in the log
+  const users = useMemo(() => {
+    const set = new Set();
+    requestHistory.forEach(r => set.add(r.actor));
+    auditLog.forEach(a => set.add(a.actor));
+    set.add("Ananya Rao"); set.add("Sync Worker");
+    return Array.from(set).sort();
+  }, [requestHistory, auditLog]);
   const alerts = useMemo(() => {
     const items = [];
     products.forEach(p => {
@@ -477,6 +553,7 @@ export const StoreProvider = ({ children }) => {
     <StoreContext.Provider value={{
       products, listings, orders, returns, channels, categories, schemas, brands, auditLog, variants, attributes,
       segments, requestHistory, alerts,
+      deliveredForProduct, deliveredForChannel, soldForListingInRange, topProductsByChannel, users,
       addProducts, updateProduct, pushProductToChannels, listProductOnChannels, updateListing, toggleChannel,
       getVariants, updateVariant, deleteVariant, addOptionValue, addAxis, totalStock,
       effectiveStock, productListings, productStockView,
