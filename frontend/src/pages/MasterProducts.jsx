@@ -2,11 +2,12 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill, SyncBadge } from "@/components/Pills";
-import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers } from "lucide-react";
+import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers, Boxes, Split } from "lucide-react";
 import CsvImportWizard from "@/components/CsvImportWizard";
 import ListChannelDrawer from "@/components/ListChannelDrawer";
 import ProductListingsDrawer from "@/components/ProductListingsDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
+import StockAllocationDrawer from "@/components/StockAllocationDrawer";
 import { toast } from "sonner";
 
 export default function MasterProducts() {
@@ -17,6 +18,7 @@ export default function MasterProducts() {
   const [listDrawerProduct, setListDrawerProduct] = useState(null);
   const [viewDrawerProduct, setViewDrawerProduct] = useState(null);
   const [variantsProduct, setVariantsProduct] = useState(null);
+  const [stockProduct, setStockProduct] = useState(null);
   const [selected, setSelected] = useState(new Set());
 
   const filtered = useMemo(() => {
@@ -131,7 +133,15 @@ export default function MasterProducts() {
                   <td className="p-3 tabular text-[12px]">{p.sku}</td>
                   <td className="p-3 text-[12px]">{p.category}</td>
                   <td className="p-3 text-right tabular">₹{p.mrp.toLocaleString("en-IN")}</td>
-                  <td className={`p-3 text-right tabular font-medium ${displayStock === 0 ? "text-[var(--danger)]" : ""}`}>{displayStock}</td>
+                  <td className={`p-3 text-right tabular font-medium ${displayStock === 0 ? "text-[var(--danger)]" : ""}`}>
+                    <button data-testid={`stock-btn-${p.id}`} onClick={() => setStockProduct(p)} className="inline-flex items-center gap-1.5 hover:text-[var(--primary)] group transition-colors">
+                      <span>{displayStock}</span>
+                      <span title={p.stock_mode === "central" ? "Central Pool" : "Allocated per Channel"} className={`inline-flex items-center px-1.5 py-0.5 border text-[9px] uppercase tracking-widest font-medium ${p.stock_mode === "central" ? "border-[var(--border)] text-[var(--fg-muted)] group-hover:border-[var(--primary)] group-hover:text-[var(--primary)]" : "border-[var(--primary)] text-[var(--primary)] bg-[#F0F4FF]"}`}>
+                        {p.stock_mode === "central" ? <Boxes size={9} className="mr-0.5" /> : <Split size={9} className="mr-0.5" />}
+                        {p.stock_mode === "central" ? "Pool" : "Split"}
+                      </span>
+                    </button>
+                  </td>
                   <td className="p-3">
                     {vs.length > 0 ? (
                       <button data-testid={`open-variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 border border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors">
@@ -184,6 +194,7 @@ export default function MasterProducts() {
       {listDrawerProduct && <ListChannelDrawer product={listDrawerProduct} onClose={() => setListDrawerProduct(null)} />}
       {viewDrawerProduct && <ProductListingsDrawer product={viewDrawerProduct} onClose={() => setViewDrawerProduct(null)} />}
       {variantsProduct && <VariantsDrawer product={variantsProduct} onClose={() => setVariantsProduct(null)} />}
+      {stockProduct && <StockAllocationDrawer product={stockProduct} onClose={() => setStockProduct(null)} />}
     </>
   );
 }

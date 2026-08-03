@@ -9,19 +9,21 @@ import { toast } from "sonner";
 const fmt = (n) => "₹" + n.toLocaleString("en-IN");
 
 export default function ListingsAndChannels() {
-  const { listings, channels } = useStore();
+  const { listings, channels, effectiveStock, products } = useStore();
   const [query, setQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [view, setView] = useState("grouped"); // grouped | flat
+  const [view, setView] = useState("grouped");
   const [expanded, setExpanded] = useState(new Set());
 
-  const filtered = useMemo(() => listings.filter(l => {
+  const enriched = useMemo(() => listings.map(l => ({ ...l, live_stock: effectiveStock(l) })), [listings, effectiveStock]);
+
+  const filtered = useMemo(() => enriched.filter(l => {
     if (channelFilter !== "all" && l.channel !== channelFilter) return false;
     if (statusFilter !== "all" && l.status !== statusFilter) return false;
     if (query && !l.title.toLowerCase().includes(query.toLowerCase()) && !l.master_sku.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
-  }), [listings, query, channelFilter, statusFilter]);
+  }), [enriched, query, channelFilter, statusFilter]);
 
   // Group by master_sku — one row per unique product
   const grouped = useMemo(() => {
@@ -29,31 +31,34 @@ export default function ListingsAndChannels() {
     filtered.forEach(l => {
       const key = l.master_sku;
       if (!map.has(key)) {
+        const product = products.find(p => p.id === l.master_id);
         map.set(key, {
           master_sku: l.master_sku,
           master_id: l.master_id,
           title: l.title,
           image: l.image,
+          stock_mode: product?.stock_mode || "central",
+          master_pool: product?.stock || 0,
           rows: [],
         });
       }
       map.get(key).rows.push(l);
     });
     return Array.from(map.values()).map(g => {
-      const totalStock = g.rows.reduce((s, r) => s + r.stock, 0);
+      // In central mode, total stock is the master pool (not the sum of duplicated pool numbers).
+      const totalStock = g.stock_mode === "central" ? g.master_pool : g.rows.reduce((s, r) => s + r.live_stock, 0);
       const totalRev = g.rows.reduce((s, r) => s + r.revenue_30d, 0);
       const totalUnits = g.rows.reduce((s, r) => s + r.units_sold_30d, 0);
       const errorCount = g.rows.filter(r => r.status === "error").length;
       const activeCount = g.rows.filter(r => r.status === "active").length;
       const pausedCount = g.rows.filter(r => r.status === "paused").length;
-      const oosCount = g.rows.filter(r => r.stock === 0).length;
-      const avgPrice = g.rows.length ? Math.round(g.rows.reduce((s, r) => s + r.price, 0) / g.rows.length) : 0;
+      const oosCount = g.rows.filter(r => r.live_stock === 0).length;
       const priceMin = Math.min(...g.rows.map(r => r.price));
       const priceMax = Math.max(...g.rows.map(r => r.price));
       const lastSync = g.rows.map(r => r.last_synced).sort().reverse()[0];
-      return { ...g, totalStock, totalRev, totalUnits, errorCount, activeCount, pausedCount, oosCount, avgPrice, priceMin, priceMax, lastSync };
+      return { ...g, totalStock, totalRev, totalUnits, errorCount, activeCount, pausedCount, oosCount, priceMin, priceMax, lastSync };
     });
-  }, [filtered]);
+  }, [filtered, products]);
 
   const toggleExpand = (sku) => {
     setExpanded(prev => {
@@ -66,10 +71,10 @@ export default function ListingsAndChannels() {
   const expandAll = () => setExpanded(new Set(grouped.map(g => g.master_sku)));
   const collapseAll = () => setExpanded(new Set());
 
-  const activeCount = listings.filter(l => l.status === "active").length;
-  const errCount = listings.filter(l => l.status === "error").length;
-  const oosCount = listings.filter(l => l.stock === 0).length;
-  const totalRev = listings.reduce((s, l) => s + l.revenue_30d, 0);
+  const activeCount = enriched.filter(l => l.status === "active").length;
+  const errCount = enriched.filter(l => l.status === "error").length;
+  const oosCount = enriched.filter(l => l.live_stock === 0).length;
+  const totalRev = enriched.reduce((s, l) => s + l.revenue_30d, 0);
 
   const syncAll = () => {
     toast.success("Sync initiated across all channels", { description: `${listings.length} listings will update in the next 30s.` });
@@ -187,6 +192,9 @@ export default function ListingsAndChannels() {
                               </div>
                             ))}
                             <span className="text-[11px] text-[var(--fg-muted)] tabular ml-1">{g.rows.length}</span>
+                            <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 border text-[9px] uppercase tracking-widest font-medium ${g.stock_mode === "central" ? "border-[var(--border)] text-[var(--fg-muted)]" : "border-[var(--primary)] text-[var(--primary)] bg-[#F0F4FF]"}`} title={g.stock_mode === "central" ? "Central Pool: shared stock" : "Allocated: dedicated per channel"}>
+                              {g.stock_mode === "central" ? "POOL" : "SPLIT"}
+                            </span>
                           </div>
                           {(g.errorCount > 0 || g.pausedCount > 0 || g.oosCount > 0) && (
                             <div className="flex gap-1.5 mt-1.5 text-[10px]">
@@ -228,7 +236,10 @@ export default function ListingsAndChannels() {
                                       <td className="py-2"><ChannelChip channel={r.channel} /></td>
                                       <td className="py-2 tabular text-[11px] text-[var(--fg-muted)]">{r.channel_sku}</td>
                                       <td className="py-2"><StatusPill status={r.status} /></td>
-                                      <td className={`py-2 text-right tabular ${r.stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{r.stock}</td>
+                                      <td className={`py-2 text-right tabular ${r.live_stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>
+                                        {r.live_stock}
+                                        {g.stock_mode === "central" && <span className="ml-1 text-[9px] text-[var(--fg-muted)] uppercase tracking-widest">shared</span>}
+                                      </td>
                                       <td className="py-2 text-right tabular font-medium">{fmt(r.price)}</td>
                                       <td className="py-2 text-right tabular">{r.units_sold_30d}</td>
                                       <td className="py-2 text-right tabular">{fmt(r.revenue_30d)}</td>
@@ -285,7 +296,7 @@ export default function ListingsAndChannels() {
                     <td className="p-3"><ChannelChip channel={l.channel} /></td>
                     <td className="p-3 tabular text-[12px] text-[var(--fg-muted)]">{l.channel_sku}</td>
                     <td className="p-3"><StatusPill status={l.status} /></td>
-                    <td className={`p-3 text-right tabular ${l.stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{l.stock}</td>
+                    <td className={`p-3 text-right tabular ${l.live_stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{l.live_stock}</td>
                     <td className="p-3 text-right tabular font-medium">{fmt(l.price)}</td>
                     <td className="p-3 text-right tabular">{l.units_sold_30d}</td>
                     <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{l.last_synced}</td>

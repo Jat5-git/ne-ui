@@ -27,8 +27,33 @@ export const StoreProvider = ({ children }) => {
     setAuditLog(prev => [{ ts: nowStamp(), actor, event, detail, level }, ...prev]);
   };
 
+  // ---- Stock resolution helpers ----
+  // In "central" mode, every channel listing shares product.stock.
+  // In "allocated" mode, each listing carries its own stock number.
+  const effectiveStock = useCallback((listing) => {
+    const p = products.find(x => x.id === listing.master_id);
+    if (!p) return listing.stock;
+    return p.stock_mode === "central" ? p.stock : listing.stock;
+  }, [products]);
+
+  const productListings = useCallback((productId) => listings.filter(l => l.master_id === productId), [listings]);
+
+  const productStockView = useCallback((productId) => {
+    const p = products.find(x => x.id === productId);
+    if (!p) return { mode: "central", total: 0, allocations: {}, unallocated: 0 };
+    const rows = listings.filter(l => l.master_id === productId);
+    if (p.stock_mode === "central") {
+      return { mode: "central", total: p.stock, allocations: {}, unallocated: 0, channels_visible: rows.map(r => r.channel) };
+    }
+    const allocations = {};
+    rows.forEach(r => { allocations[r.channel] = r.stock; });
+    const allocated_sum = Object.values(allocations).reduce((a, b) => a + b, 0);
+    return { mode: "allocated", total: p.stock, allocations, unallocated: Math.max(0, p.stock - allocated_sum), channels_visible: rows.map(r => r.channel) };
+  }, [products, listings]);
+
+  // ---- Product & listing actions ----
   const addProducts = useCallback((newRows) => {
-    setProducts(prev => [...newRows, ...prev]);
+    setProducts(prev => [...newRows.map(r => ({ stock_mode: "central", ...r })), ...prev]);
     setVariants(prev => {
       const next = { ...prev };
       newRows.forEach(r => { next[r.id] = []; });
@@ -37,15 +62,20 @@ export const StoreProvider = ({ children }) => {
   }, []);
 
   const listProductOnChannels = useCallback((productId, channelKeys) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
     setProducts(prev => prev.map(p => {
       if (p.id !== productId) return p;
       const merged = Array.from(new Set([...(p.channels || []), ...channelKeys]));
       return { ...p, channels: merged, status: merged.length ? "listed" : "unlisted" };
     }));
 
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
     const price_mul = { amazon: 1.05, shopify: 1.10, flipkart: 1.02, woocommerce: 1.08 };
+    // Even split when adding new channels (allocated mode); central mode ignores stock field.
+    const totalChannels = channelKeys.length + (product.channels?.length || 0);
+    const evenSplit = totalChannels > 0 ? Math.floor(product.stock / totalChannels) : product.stock;
+
     const newListings = channelKeys
       .filter(ch => !listings.some(l => l.master_id === productId && l.channel === ch))
       .map((ch, idx) => ({
@@ -58,7 +88,7 @@ export const StoreProvider = ({ children }) => {
         channel_label: ch.charAt(0).toUpperCase() + ch.slice(1),
         channel_sku: `${ch.slice(0, 3).toUpperCase()}-${product.sku}`,
         status: "active",
-        stock: Math.round(product.stock / (channelKeys.length + (product.channels?.length || 0)) || product.stock),
+        stock: evenSplit,
         price: Math.round(product.mrp * (price_mul[ch] || 1)),
         last_synced: nowStamp(),
         units_sold_30d: 0,
@@ -75,6 +105,66 @@ export const StoreProvider = ({ children }) => {
 
   const toggleChannel = useCallback((channelId) => {
     setChannels(prev => prev.map(c => c.id === channelId ? { ...c, status: c.status === "connected" ? "disconnected" : "connected" } : c));
+  }, []);
+
+  // ---- Stock allocation actions ----
+  const setStockMode = useCallback((productId, mode) => {
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+    const rows = listings.filter(l => l.master_id === productId);
+    setProducts(prev => prev.map(x => {
+      if (x.id !== productId) return x;
+      let newMaster = x.stock;
+      if (mode === "central" && x.stock_mode === "allocated") {
+        // Sum current allocations into the master pool
+        newMaster = rows.reduce((s, r) => s + r.stock, 0);
+      }
+      return { ...x, stock_mode: mode, stock: newMaster };
+    }));
+
+    if (mode === "allocated" && p.stock_mode === "central" && rows.length > 0) {
+      // Distribute master stock evenly across channels
+      const per = Math.floor(p.stock / rows.length);
+      const remainder = p.stock - per * rows.length;
+      setListings(prev => prev.map(l => {
+        if (l.master_id !== productId) return l;
+        const idx = rows.findIndex(r => r.id === l.id);
+        const extra = idx === 0 ? remainder : 0;
+        return { ...l, stock: per + extra, last_synced: nowStamp() };
+      }));
+    }
+    logEvent("Stock mode changed", `${p.sku}: ${p.stock_mode} → ${mode}`, "success");
+  }, [products, listings]);
+
+  const updateCentralStock = useCallback((productId, newStock) => {
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: Math.max(0, newStock) } : p));
+    const p = products.find(x => x.id === productId);
+    if (p) logEvent("Central stock updated", `${p.sku}: ${p.stock} → ${newStock} units`, "info");
+  }, [products]);
+
+  const updateChannelAllocation = useCallback((productId, channelKey, newStock) => {
+    setListings(prev => prev.map(l => (l.master_id === productId && l.channel === channelKey) ? { ...l, stock: Math.max(0, newStock), last_synced: nowStamp() } : l));
+    const p = products.find(x => x.id === productId);
+    if (p) logEvent("Channel allocation updated", `${p.sku} → ${channelKey.charAt(0).toUpperCase() + channelKey.slice(1)}: ${newStock} units`, "info");
+  }, [products]);
+
+  const autoBalance = useCallback((productId) => {
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+    const rows = listings.filter(l => l.master_id === productId);
+    if (rows.length === 0) return;
+    const per = Math.floor(p.stock / rows.length);
+    const remainder = p.stock - per * rows.length;
+    setListings(prev => prev.map(l => {
+      if (l.master_id !== productId) return l;
+      const idx = rows.findIndex(r => r.id === l.id);
+      return { ...l, stock: per + (idx === 0 ? remainder : 0), last_synced: nowStamp() };
+    }));
+    logEvent("Auto-balanced allocations", `${p.sku}: ${p.stock} units spread across ${rows.length} channels`, "success");
+  }, [products, listings]);
+
+  const setMasterPool = useCallback((productId, total) => {
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: Math.max(0, total) } : p));
   }, []);
 
   // ---- Variant actions ----
@@ -99,14 +189,13 @@ export const StoreProvider = ({ children }) => {
   const addOptionValue = useCallback((productId, axisName, value) => {
     const product = products.find(p => p.id === productId);
     if (!product || !value.trim()) return;
-    let addedAxis = false;
+
     setProducts(prev => prev.map(p => {
       if (p.id !== productId) return p;
       const axes = [...(p.option_axes || [])];
       const idx = axes.findIndex(a => a.name === axisName);
       if (idx === -1) {
         axes.push({ name: axisName, values: [value] });
-        addedAxis = true;
       } else {
         if (axes[idx].values.includes(value)) return p;
         axes[idx] = { ...axes[idx], values: [...axes[idx].values, value] };
@@ -114,10 +203,8 @@ export const StoreProvider = ({ children }) => {
       return { ...p, option_axes: axes };
     }));
 
-    // Generate new variants combining new value with all existing option combos on other axes
     setVariants(prev => {
       const existing = prev[productId] || [];
-      // Idempotency guard: skip if variants for this axis-value already exist
       if (existing.some(v => v.options && v.options[axisName] === value)) return prev;
       const otherAxes = (product.option_axes || []).filter(a => a.name !== axisName);
       const otherCombos = otherAxes.length === 0 ? [{}] : otherAxes.reduce((acc, ax) => {
@@ -166,6 +253,8 @@ export const StoreProvider = ({ children }) => {
       products, listings, orders, returns, channels, categories, schemas, brands, auditLog, variants,
       addProducts, listProductOnChannels, updateListing, toggleChannel,
       getVariants, updateVariant, deleteVariant, addOptionValue, addAxis, totalStock,
+      effectiveStock, productListings, productStockView,
+      setStockMode, updateCentralStock, updateChannelAllocation, autoBalance, setMasterPool,
     }}>
       {children}
     </StoreContext.Provider>

@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend testing of Stock Allocation feature (central pool vs allocated per channel). All 15 assertions from review request pass: POOL/SPLIT badges render correctly on Master Products for all 5 spec'd SKUs; StockAllocationDrawer opens on stock-btn click; allocated mode shows allocation-table with editable inputs and % bars; edits persist; Auto-Balance evenly redistributes (240 → 80/80/80 across 3 channels); Save Pool updates master total and shows sonner toast; central mode swaps to shared-pool view with 240 Live stock on every channel row; switching back to allocated preserves distribution; empty-state drawer shown for mp_007 (no channels). Listings & Channels grouped view: STR-RUN-002 shows POOL badge and both sub-rows show 158 SHARED; STR-RUN-001 shows SPLIT with distinct per-channel stocks (80/77/74); OOS KPI = 1 matches PLS-WCH-102 (central, 0 stock, 1 channel). Flat view uses effectiveStock — PLS-WCH-102 Amazon = 0, STR-RUN-002 Amazon & Shopify both = 158.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MasterProducts.jsx Stock column shows variant-sum (displayStock = vs.length > 0 ? vStock : p.stock) rather than the master pool for products with variants. This means the number next to the POOL/SPLIT badge (e.g., 132 shown for STR-RUN-002 whose master pool is 158, 180 for STR-RUN-001 whose master pool is 240) does NOT match the master pool value shown in the drawer. Minor UX inconsistency — spec did not require this to equal master pool, but users may be confused about what number is displayed. Consider showing effective master pool (p.stock) alongside a separate variant-total, or unify the two.",
+    "Seed data buildListings splits master stock unevenly with per-index offset (Math.floor(p.stock/n) - (i%5)*3), so initial allocations often don't sum to master pool (e.g., STR-RUN-001 allocations 80+77+74=231, master=240, leaves 9 unallocated). Cosmetic — Auto-Balance correctly rebalances to 240 total.",
+    "All data-testid attributes exactly match the spec: stock-btn-<id>, stock-drawer, allocation-table, alloc-row-<ch>, alloc-input-<ch>, master-pool-input, save-master-pool, auto-balance, mode-central, mode-allocated, central-row-<ch>, view-flat, stock-drawer-close.",
+    "setStockMode logic in StoreContext when going allocated→central sums current allocations into new master pool, which is correct; but in the tested run the drawer had already set master to 300 via Save Pool before switching to central — the central view then showed 240 (the sum of current allocations after Auto-Balance) rather than 300. This is arguably the intended behavior per the code comment 'Sum current allocations into the master pool', but slightly counterintuitive if the user just explicitly set 300. Not a blocker."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None required",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stock allocation feature fully verified. Drawer flow: mode toggle (central/allocated), master pool input + Save Pool button, Auto-Balance, per-channel allocation inputs with % bar. Listings grouped view uses effectiveStock: SHARED label appears on central-mode sub-rows (verified for STR-RUN-002: 158 SHARED on Amazon and Shopify). KPI OOS=1 corresponds to PLS-WCH-102. Empty-state drawer verified for mp_007. Total data-testids in spec: 100% coverage.",
+  "rca of the issue": "N/A — feature working as specified."
+}
