@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Plus, X, ShieldCheck, AlertCircle, Trash2 } from "lucide-react";
 import { getSchemaForCategory, CHANNEL_TABS } from "@/data/channelSchemas";
 import { ChannelChip } from "./Pills";
@@ -114,9 +114,17 @@ function AddCustomAttribute({ onAdd, section }) {
 }
 
 // ---- Main editor ----
-export default function ChannelAttributesEditor({ category, values = {}, onChange, customAttrs = {}, onCustomChange }) {
-  const [tab, setTab] = useState("common");
+export default function ChannelAttributesEditor({ category, values = {}, onChange, customAttrs = {}, onCustomChange, activeChannels = null }) {
   const schema = useMemo(() => getSchemaForCategory(category), [category]);
+
+  // Filter tabs to what the caller allows. `common` is always shown; per-channel tabs are gated by activeChannels.
+  const visibleTabs = useMemo(() => {
+    if (!activeChannels) return CHANNEL_TABS;
+    return CHANNEL_TABS.filter(t => !t.channel || activeChannels.includes(t.channel));
+  }, [activeChannels]);
+
+  const [tab, setTab] = useState(visibleTabs[0]?.key || "common");
+  useEffect(() => { if (!visibleTabs.some(t => t.key === tab)) setTab(visibleTabs[0]?.key || "common"); }, [visibleTabs, tab]);
 
   const currentFields = (schema[tab] || []).concat(customAttrs[tab] || []);
   const required = currentFields.filter(f => f.required);
@@ -126,11 +134,11 @@ export default function ChannelAttributesEditor({ category, values = {}, onChang
   });
   const completion = required.length === 0 ? 100 : Math.round((completed.length / required.length) * 100);
 
-  const totalFields = CHANNEL_TABS.reduce((acc, t) => {
+  const totalFields = visibleTabs.reduce((acc, t) => {
     const fs = (schema[t.key] || []).concat(customAttrs[t.key] || []);
     return acc + fs.filter(f => f.required).length;
   }, 0);
-  const filledFields = CHANNEL_TABS.reduce((acc, t) => {
+  const filledFields = visibleTabs.reduce((acc, t) => {
     const fs = (schema[t.key] || []).concat(customAttrs[t.key] || []);
     const filled = fs.filter(f => {
       const v = values[t.key]?.[f.key];
@@ -173,7 +181,7 @@ export default function ChannelAttributesEditor({ category, values = {}, onChang
       </div>
 
       <div className="flex border-b border-[var(--border)] overflow-x-auto">
-        {CHANNEL_TABS.map(t => {
+        {visibleTabs.map(t => {
           const fs = (schema[t.key] || []).concat(customAttrs[t.key] || []);
           const reqCount = fs.filter(f => f.required).length;
           const doneCount = fs.filter(f => {

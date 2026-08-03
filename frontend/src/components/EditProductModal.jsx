@@ -31,6 +31,8 @@ export default function EditProductModal({ product, onClose }) {
   });
   const [attrValues, setAttrValues] = useState(product.channel_attributes || {});
   const [customAttrs, setCustomAttrs] = useState(product.custom_attributes || {});
+  // Channels selected for attribute editing. Default: what the product is currently on (or all if none)
+  const [attrChannels, setAttrChannels] = useState((product.channels && product.channels.length > 0) ? [...product.channels] : CHANNEL_LIST.map(c => c.key));
 
   // Sync options
   const [syncChannels, setSyncChannels] = useState([...(product.channels || [])]);
@@ -108,20 +110,45 @@ export default function EditProductModal({ product, onClose }) {
           )}
 
           {tab === "attributes" && (
-            <ChannelAttributesEditor
-              category={form.category}
-              values={attrValues}
-              onChange={setAttrValues}
-              customAttrs={customAttrs}
-              onCustomChange={setCustomAttrs}
-            />
+            <>
+              <div className="mb-3 border border-[var(--border)] p-3 bg-[var(--surface)]" data-testid="ep-channel-picker">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Channels to edit</div>
+                    <div className="text-[11px] text-[var(--fg-muted)] mt-0.5">Only the picked channels&apos; required fields are shown &amp; counted below.</div>
+                  </div>
+                  <div className="flex gap-1">
+                    <button data-testid="ep-attr-all" onClick={() => setAttrChannels(CHANNEL_LIST.map(c => c.key))} className="px-2 py-1 text-[11px] border border-[var(--border)] bg-white hover:bg-[var(--surface)]">Select all</button>
+                    <button data-testid="ep-attr-none" onClick={() => setAttrChannels([])} className="px-2 py-1 text-[11px] border border-[var(--border)] bg-white hover:bg-[var(--surface)]">Clear</button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {CHANNEL_LIST.map(c => {
+                    const active = attrChannels.includes(c.key);
+                    return (
+                      <button key={c.key} data-testid={`ep-attr-ch-${c.key}`} onClick={() => setAttrChannels(prev => prev.includes(c.key) ? prev.filter(x => x !== c.key) : [...prev, c.key])} className={`px-2.5 py-1 text-[12px] border transition-colors flex items-center gap-1.5 ${active ? "bg-[var(--fg)] text-white border-[var(--fg)]" : "border-[var(--border)] hover:bg-white"}`}>
+                        <span className="w-1.5 h-1.5" style={{ background: active ? "white" : "#d1d5db" }}></span>{c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <ChannelAttributesEditor
+                category={form.category}
+                values={attrValues}
+                onChange={setAttrValues}
+                customAttrs={customAttrs}
+                onCustomChange={setCustomAttrs}
+                activeChannels={attrChannels}
+              />
+            </>
           )}
 
           {tab === "sync" && (
             <div className="space-y-4">
               <div className="border border-[var(--border)] p-4">
                 <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold mb-2">Channels to sync</div>
-                {availableChannels.length === 0 && <div className="text-[12px] text-[var(--fg-muted)]">This product is not listed on any channel yet. Use the "List on Channel" button to publish first.</div>}
+                {availableChannels.length === 0 && <div className="text-[12px] text-[var(--fg-muted)]">This product is not listed on any channel yet. Use the &quot;List on Channel&quot; button to publish first.</div>}
                 <div className="space-y-2">
                   {availableChannels.map(c => (
                     <label key={c.key} data-testid={`ep-sync-${c.key}`} className={`flex items-center gap-3 p-2.5 border cursor-pointer ${syncChannels.includes(c.key) ? "border-[var(--primary)] bg-[#F0F4FF]" : "border-[var(--border)] hover:bg-[var(--surface)]"}`}>

@@ -3,8 +3,9 @@ import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { REVENUE_TREND } from "@/data/seed";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
-import { Filter, Download, Columns3, RefreshCw, ChevronDown } from "lucide-react";
+import { Filter, Download, Columns3, RefreshCw, ChevronDown, Plus, X, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const COLORS = { amazon: "#FF9900", shopify: "#7AB55C", flipkart: "#2874F0", woocommerce: "#7F54B3" };
 
@@ -90,13 +91,78 @@ export default function Analytics() {
   const [colsOpen, setColsOpen] = useState(false);
 
   // Reset columns when report type changes
-  const onReportChange = (t) => { setReportType(t); setSelectedCols(REPORTS[t].cols.map(c => c.key)); setFlStatus("all"); };
+  const onReportChange = (t) => { setReportType(t); setSelectedCols(REPORTS[t].cols.map(c => c.key)); setFlStatus("all"); setAdvFilters([]); };
 
   const toggleChannel = (k) => setFlChannels(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const toggleCol = (k) => setSelectedCols(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
 
+  // ============= ADVANCED FILTER BUILDER =============
+  // Each row: { id, field, operator, value, valueEnd }.
+  // Field type inferred from cfg.cols by `num` flag or key heuristic (date keys → date).
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advFilters, setAdvFilters] = useState([]);
+  const [advMatch, setAdvMatch] = useState("all"); // all | any
+
+  const fieldType = (col) => {
+    if (!col) return "string";
+    if (col.key === "last_synced" || col.key === "date") return "date";
+    if (col.num) return "number";
+    return "string";
+  };
+  const opsFor = (type) => {
+    if (type === "number") return [{ v: "eq", l: "equals" }, { v: "neq", l: "not equals" }, { v: "gt", l: "greater than" }, { v: "gte", l: "≥" }, { v: "lt", l: "less than" }, { v: "lte", l: "≤" }, { v: "between", l: "between" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
+    if (type === "date")   return [{ v: "on_or_after", l: "on or after" }, { v: "on_or_before", l: "on or before" }, { v: "between", l: "between" }, { v: "in_last_days", l: "in last N days" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
+    return [{ v: "contains", l: "contains" }, { v: "not_contains", l: "does not contain" }, { v: "eq", l: "equals" }, { v: "neq", l: "not equals" }, { v: "starts", l: "starts with" }, { v: "ends", l: "ends with" }, { v: "empty", l: "is empty" }, { v: "notempty", l: "is not empty" }];
+  };
+
+  const addFilter = () => {
+    const firstCol = cfg.cols[0];
+    setAdvFilters(prev => [...prev, { id: `f_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, field: firstCol.key, operator: opsFor(fieldType(firstCol))[0].v, value: "", valueEnd: "" }]);
+  };
+  const removeFilter = (id) => setAdvFilters(prev => prev.filter(f => f.id !== id));
+  const updateFilter = (id, patch) => setAdvFilters(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
+  const clearAllFilters = () => setAdvFilters([]);
+
+  const evalRule = (row, f) => {
+    const col = cfg.cols.find(c => c.key === f.field);
+    const type = fieldType(col);
+    const raw = row[f.field];
+    const v = raw === null || raw === undefined ? "" : raw;
+    const q = f.value; const q2 = f.valueEnd;
+    switch (f.operator) {
+      case "empty":    return v === "" || v === null || v === undefined;
+      case "notempty": return !(v === "" || v === null || v === undefined);
+      case "eq":       return type === "number" ? Number(v) === Number(q) : String(v).toLowerCase() === String(q).toLowerCase();
+      case "neq":      return type === "number" ? Number(v) !== Number(q) : String(v).toLowerCase() !== String(q).toLowerCase();
+      case "contains":     return String(v).toLowerCase().includes(String(q).toLowerCase());
+      case "not_contains": return !String(v).toLowerCase().includes(String(q).toLowerCase());
+      case "starts":       return String(v).toLowerCase().startsWith(String(q).toLowerCase());
+      case "ends":         return String(v).toLowerCase().endsWith(String(q).toLowerCase());
+      case "gt":  return Number(v) >  Number(q);
+      case "gte": return Number(v) >= Number(q);
+      case "lt":  return Number(v) <  Number(q);
+      case "lte": return Number(v) <= Number(q);
+      case "between":
+        if (type === "date") return String(v) >= String(q) && String(v) <= String(q2);
+        return Number(v) >= Number(q) && Number(v) <= Number(q2);
+      case "on_or_after":  return String(v) >= String(q);
+      case "on_or_before": return String(v) <= String(q);
+      case "in_last_days": {
+        const days = Number(q); if (!days) return true;
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+        try { return new Date(v) >= cutoff; } catch { return false; }
+      }
+      default: return true;
+    }
+  };
+  const passesAdvanced = (row) => {
+    if (advFilters.length === 0) return true;
+    if (advMatch === "any") return advFilters.some(f => evalRule(row, f));
+    return advFilters.every(f => evalRule(row, f));
+  };
+
   // ---- Build report rows from source ----
-  const rows = useMemo(() => {
+  const rawRows = useMemo(() => {
     if (reportType === "listings") {
       return listings.filter(l => {
         if (!flChannels.has(l.channel)) return false;
@@ -152,6 +218,9 @@ export default function Analytics() {
     }
     return [];
   }, [reportType, listings, orders, products, channels, flChannels, flStatus, flBrand, flCategory, flStockMin, flStockMax, flDateFrom, flDateTo, availableForListing, availableStock, blockedForProduct, blockedForChannel, orderTotal, orderQty, revenueByChannel]);
+
+  // Apply advanced filters on top of simple filters
+  const rows = useMemo(() => rawRows.filter(passesAdvanced), [rawRows, advFilters, advMatch]);
 
   // ---- CSV export ----
   const exportCsv = () => {
@@ -279,9 +348,7 @@ export default function Analytics() {
             <div className="flex items-center gap-4 flex-wrap">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Report Type</label>
-                <select value={reportType} onChange={e => onReportChange(e.target.value)} data-testid="rb-type" className="border border-[var(--border)] px-2.5 py-1.5 text-[13px] bg-white min-w-[220px]">
-                  {Object.entries(REPORTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
+                <SearchableSelect value={reportType} onChange={onReportChange} options={Object.entries(REPORTS).map(([k, v]) => ({ value: k, label: v.label }))} testid="rb-type" size="md" className="min-w-[220px]" />
               </div>
               <div className="relative">
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Columns ({selectedCols.length}/{cfg.cols.length})</label>
@@ -316,26 +383,18 @@ export default function Analytics() {
 
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Status</label>
-                <select value={flStatus} onChange={e => setFlStatus(e.target.value)} data-testid="rb-status" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px] bg-white capitalize">
-                  {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <SearchableSelect value={flStatus} onChange={setFlStatus} options={statusOptions.map(s => ({ value: s, label: s }))} testid="rb-status" />
               </div>
 
               {(reportType === "listings" || reportType === "stock") && (
                 <>
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Brand</label>
-                    <select value={flBrand} onChange={e => setFlBrand(e.target.value)} data-testid="rb-brand" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px] bg-white">
-                      <option value="all">All brands</option>
-                      {uniqueBrands.map(b => <option key={b}>{b}</option>)}
-                    </select>
+                    <SearchableSelect value={flBrand} onChange={setFlBrand} options={[{ value: "all", label: "All brands" }, ...uniqueBrands.map(b => ({ value: b, label: b }))]} testid="rb-brand" />
                   </div>
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Category</label>
-                    <select value={flCategory} onChange={e => setFlCategory(e.target.value)} data-testid="rb-category" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px] bg-white">
-                      <option value="all">All categories</option>
-                      {uniqueCategories.map(c => <option key={c}>{c}</option>)}
-                    </select>
+                    <SearchableSelect value={flCategory} onChange={setFlCategory} options={[{ value: "all", label: "All categories" }, ...uniqueCategories.map(c => ({ value: c, label: c }))]} testid="rb-category" />
                   </div>
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold block mb-1">Available Stock (min – max)</label>
@@ -358,6 +417,76 @@ export default function Analytics() {
                     <input type="date" value={flDateTo} onChange={e => setFlDateTo(e.target.value)} data-testid="rb-date-to" className="w-full border border-[var(--border)] px-2 py-1.5 text-[12px]" />
                   </div>
                 </>
+              )}
+            </div>
+
+            {/* Preview Table */}
+            <div className="border border-[var(--border)] bg-[var(--surface)] mb-3">
+              <button onClick={() => setAdvOpen(o => !o)} data-testid="adv-toggle" className={`w-full flex items-center justify-between px-4 py-2.5 text-[12px] font-medium hover:bg-white transition-colors ${advFilters.length > 0 ? "bg-[#F0F4FF]" : ""}`}>
+                <span className="flex items-center gap-1.5"><SlidersHorizontal size={12} className="text-[var(--primary)]" />Advanced Filters {advFilters.length > 0 && <span className="ml-1 px-1.5 py-0.5 bg-[var(--primary)] text-white text-[10px] tabular">{advFilters.length}</span>}</span>
+                <span className="flex items-center gap-2 text-[11px] text-[var(--fg-muted)]">
+                  {advFilters.length > 0 && <span>Match: <b className="uppercase">{advMatch === "all" ? "ALL (AND)" : "ANY (OR)"}</b></span>}
+                  <ChevronDown size={12} className={`transition-transform ${advOpen ? "rotate-180" : ""}`} />
+                </span>
+              </button>
+              {advOpen && (
+                <div className="p-4 border-t border-[var(--border)] bg-white space-y-3" data-testid="adv-panel">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Match</span>
+                    <div className="flex border border-[var(--border)] divide-x divide-[var(--border)]">
+                      <button data-testid="adv-match-all" onClick={() => setAdvMatch("all")} className={`px-2.5 py-1 text-[11px] ${advMatch === "all" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}>ALL (AND)</button>
+                      <button data-testid="adv-match-any" onClick={() => setAdvMatch("any")} className={`px-2.5 py-1 text-[11px] ${advMatch === "any" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}>ANY (OR)</button>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      {advFilters.length > 0 && <button onClick={clearAllFilters} data-testid="adv-clear" className="px-2.5 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)]">Clear all</button>}
+                      <button onClick={addFilter} data-testid="adv-add" className="px-2.5 py-1 text-[11px] bg-[var(--primary)] text-white flex items-center gap-1"><Plus size={11} />Add filter</button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {advFilters.map((f, i) => {
+                      const col = cfg.cols.find(c => c.key === f.field);
+                      const type = fieldType(col);
+                      const ops = opsFor(type);
+                      const needsValue = !["empty", "notempty"].includes(f.operator);
+                      const needsRangeEnd = f.operator === "between";
+                      const isNumber = type === "number" && !needsRangeEnd && f.operator !== "in_last_days";
+                      const isDateInput = type === "date" && !["in_last_days", "empty", "notempty"].includes(f.operator);
+                      return (
+                        <div key={f.id} className="flex items-center gap-2 flex-wrap border border-[var(--border)] p-2 bg-[var(--surface)]" data-testid={`adv-row-${i}`}>
+                          <span className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold w-8">{i === 0 ? "Where" : advMatch.toUpperCase()}</span>
+                          <SearchableSelect value={f.field} onChange={(v) => { const nc = cfg.cols.find(c => c.key === v); updateFilter(f.id, { field: v, operator: opsFor(fieldType(nc))[0].v, value: "", valueEnd: "" }); }} options={cfg.cols.map(c => ({ value: c.key, label: c.label }))} testid={`adv-field-${i}`} className="min-w-[160px]" />
+                          <SearchableSelect value={f.operator} onChange={(v) => updateFilter(f.id, { operator: v, value: "", valueEnd: "" })} options={ops.map(o => ({ value: o.v, label: o.l }))} testid={`adv-op-${i}`} className="min-w-[150px]" />
+                          {needsValue && (
+                            f.operator === "in_last_days" ? (
+                              <input type="number" min="1" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="N days" className="w-24 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
+                            ) : isDateInput ? (
+                              <input type="date" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} className="border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
+                            ) : isNumber ? (
+                              <input type="number" value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="value" className="w-28 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-val-${i}`} />
+                            ) : (
+                              <input value={f.value} onChange={e => updateFilter(f.id, { value: e.target.value })} placeholder="value" className="min-w-[140px] border border-[var(--border)] px-2 py-1 text-[12px]" data-testid={`adv-val-${i}`} />
+                            )
+                          )}
+                          {needsRangeEnd && (
+                            <>
+                              <span className="text-[11px] text-[var(--fg-muted)]">and</span>
+                              {type === "date"
+                                ? <input type="date" value={f.valueEnd} onChange={e => updateFilter(f.id, { valueEnd: e.target.value })} className="border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-valend-${i}`} />
+                                : <input type="number" value={f.valueEnd} onChange={e => updateFilter(f.id, { valueEnd: e.target.value })} className="w-28 border border-[var(--border)] px-2 py-1 text-[12px] tabular" data-testid={`adv-valend-${i}`} />
+                              }
+                            </>
+                          )}
+                          <button onClick={() => removeFilter(f.id)} data-testid={`adv-rm-${i}`} className="ml-auto p-1.5 hover:bg-white text-[var(--fg-muted)] hover:text-[var(--danger)]"><X size={12} /></button>
+                        </div>
+                      );
+                    })}
+                    {advFilters.length === 0 && (
+                      <div className="border border-dashed border-[var(--border)] p-4 text-center text-[12px] text-[var(--fg-muted)]">
+                        No advanced filters yet — click <b>+ Add filter</b> to build rules like <span className="tabular">available &gt; 100</span>, <span className="tabular">title contains &quot;runner&quot;</span>, or <span className="tabular">last_synced in last 7 days</span>.
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 

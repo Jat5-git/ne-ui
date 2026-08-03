@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
 import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3, Edit3, PackageX } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import EditListingModal from "@/components/EditListingModal";
 
@@ -11,13 +11,23 @@ const fmt = (n) => "₹" + n.toLocaleString("en-IN");
 
 export default function ListingsAndChannels() {
   const { listings, channels, effectiveStock, products, blockedForProduct, blockedForChannel, availableForListing } = useStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
-  const [channelFilter, setChannelFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [stockFilter, setStockFilter] = useState("all"); // all | in_stock | low | out
+  const [channelFilter, setChannelFilter] = useState(searchParams.get("channel") || "all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [stockFilter, setStockFilter] = useState(searchParams.get("stock") || "all"); // all | in_stock | low | out
   const [view, setView] = useState("grouped");
   const [expanded, setExpanded] = useState(new Set());
   const [editListing, setEditListing] = useState(null);
+
+  // Keep URL in sync when the user changes filters (helps deep-linking + refresh)
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (stockFilter !== "all") next.set("stock", stockFilter);
+    if (channelFilter !== "all") next.set("channel", channelFilter);
+    if (statusFilter !== "all") next.set("status", statusFilter);
+    setSearchParams(next, { replace: true });
+  }, [stockFilter, channelFilter, statusFilter, setSearchParams]);
 
   const enriched = useMemo(() => listings.map(l => ({ ...l, live_stock: effectiveStock(l), available: availableForListing(l), blocked: blockedForChannel(l.master_id, l.channel) })), [listings, effectiveStock, availableForListing, blockedForChannel]);
 

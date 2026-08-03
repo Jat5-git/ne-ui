@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
-import { ArrowLeft, Save, ExternalLink, Pause, Play } from "lucide-react";
+import { ArrowLeft, Save, ExternalLink, Pause, Play, Edit3 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
+import EditListingModal from "@/components/EditListingModal";
 
 const TABS = ["Overview & Overrides", "Performance", "History"];
 
@@ -21,6 +22,7 @@ export default function ListingDetail() {
   const { listings, updateListing, auditLog } = useStore();
   const listing = listings.find(l => l.id === id);
   const [tab, setTab] = useState(0);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
 
   const [title, setTitle] = useState(listing?.title || "");
   const [bullets, setBullets] = useState(
@@ -60,6 +62,9 @@ export default function ListingDetail() {
         subtitle={<span className="flex items-center gap-2"><ChannelChip channel={listing.channel} /> <StatusPill status={listing.status} /> <span className="text-[var(--fg-muted)] tabular text-[11px]">· {listing.channel_sku}</span></span>}
         actions={
           <>
+            <button data-testid="quick-edit-btn" onClick={() => setQuickEditOpen(true)} className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5 transition-colors" title="Quick edit all fields">
+              <Edit3 size={12} />Quick Edit
+            </button>
             <button data-testid="pause-btn" onClick={togglePause} className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5 transition-colors">
               {listing.status === "paused" ? <><Play size={12} />Resume</> : <><Pause size={12} />Pause</>}
             </button>
@@ -208,6 +213,7 @@ export default function ListingDetail() {
           </div>
         )}
       </div>
+      {quickEditOpen && <EditListingModal listing={listing} onClose={() => setQuickEditOpen(false)} />}
     </>
   );
 }

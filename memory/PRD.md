@@ -21,6 +21,17 @@ Overview: Dashboard, Analytics
 Operations: Orders, Master Products, Listings & Channels, Returns
 Setup & Assets: Channels, Catalogue
 
+## Implemented (2026-02-17) — Dashboard Dashlets, Analytics Advanced Filter, Searchable Dropdowns, Channel-Scoped Attribute Edit, Listing Quick Edit
+- **Dashboard KPIs are now clickable + configurable**: 4 core KPI cards + up to 4 custom dashlets (8 total max). Each card is a `Link` that deep-links to the drill-down page with query params (`/listings?stock=out|low`, `/orders?status=delivered|processing`, `/alerts`, etc.). ListingsAndChannels now reads `?stock=`, `?channel=`, `?status=` from URL and keeps them synced. Every dashlet has a settings-gear editor with metric picker, date range (7d/30d/90d/YTD) and channel filter. Add-Dashlet CTA in topbar + inline "+" tile.
+- **Analytics Advanced Filter Builder** (user's "most important"): new collapsible panel above the preview with unlimited condition rows — field picker, operator picker (equals/not-equals/contains/starts-with/ends-with for text; gt/lt/gte/lte/between for numbers; on-or-after/on-or-before/between/in-last-N-days for dates; is-empty/is-not-empty for everything), value input auto-adjusts (single input, range 2 inputs, N-days spinner). ALL(AND) or ANY(OR) match. Rules chain with the simple filters and are applied to both the preview and CSV export.
+- **SearchableSelect component**: reusable searchable combobox with type-to-filter and highlighted current selection. Applied to Analytics report type, status, brand, category, and to the dashlet editor's metric/range/channel pickers.
+- **Channel-scoped attribute edit in EditProductModal**: Channel Attributes tab now has a chip-row channel picker at the top. Only the picked channels' schema tabs and required fields are rendered and counted — no more forced completion of every channel. `ChannelAttributesEditor` gained an `activeChannels` prop that filters `CHANNEL_TABS`.
+- **ListingDetail quick edit pencil**: added a `Quick Edit` button in the topbar that opens the full `EditListingModal` for one-click updates to channel SKU / title / price / stock / status without scrolling the long overrides form.
+
+## Deferred / not yet requested
+- Backend persistence (FastAPI/Neon wiring) — data still lives in React Context.
+- SearchableSelect roll-out to *every* dropdown in the app (currently applied to Analytics + Dashlet editor; Master Products / Segments / Alerts still use native selects).
+
 ## Implemented (2026-02-16) — Product Editing, Segments, Request History, Alerts, Stock KPI Clicks
 - **Bug fix — attribute update form**: ProductDetail's Attributes tab now actually saves. Previously `onChange` on ChannelAttributesEditor was a no-op — replaced with `updateProduct` calls that persist to StoreContext.
 - **Master Products pencil Edit**: new `EditProductModal` opens from row action `edit-<id>` with three tabs — Master Fields (title/SKU/brand/category/MRP/cost/stock/weight), Channel Attributes (full editor), Sync to Channels (pick channels + fields to push). "Save only" persists to master, "Save & Sync" also pushes overrides to selected channel listings and logs a request.
