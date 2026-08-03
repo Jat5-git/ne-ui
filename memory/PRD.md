@@ -21,6 +21,22 @@ Overview: Dashboard, Analytics
 Operations: Orders, Master Products, Listings & Channels, Returns
 Setup & Assets: Channels, Catalogue
 
+## Implemented (2026-02-16) — Product Editing, Segments, Request History, Alerts, Stock KPI Clicks
+- **Bug fix — attribute update form**: ProductDetail's Attributes tab now actually saves. Previously `onChange` on ChannelAttributesEditor was a no-op — replaced with `updateProduct` calls that persist to StoreContext.
+- **Master Products pencil Edit**: new `EditProductModal` opens from row action `edit-<id>` with three tabs — Master Fields (title/SKU/brand/category/MRP/cost/stock/weight), Channel Attributes (full editor), Sync to Channels (pick channels + fields to push). "Save only" persists to master, "Save & Sync" also pushes overrides to selected channel listings and logs a request.
+- **Listings & Channels inline Edit**: pencil icons on both grouped-expanded rows and flat view rows open `EditListingModal` for channel_sku/title/price/stock/status; save updates listing and appends request history.
+- **Segments (Operations)**: new state + CRUD (`createSegment/addProductsToSegment/removeProductFromSegment/deleteSegment`). Bulk-select on Master Products → "Create Segment" bulk action → CreateSegmentModal → creates and navigates to `/segments/<id>`. Segment detail shows a Master-Products-style table scoped to the segment with search + status + stock filters, bulk Sync Selected, List Unlisted, remove-from-segment, and per-row Edit. Two demo segments seeded (Hero SKUs, Footwear Collection).
+- **Request History (Operations)**: every mutation now flows through `logRequest(action, target, detail, status, actor, durationMs)`. New page at `/requests` shows action, target, detail, requested-by, start time, completion time, and human duration; filterable by status/search.
+- **Alerts (Setup)**: new `/alerts` page derives out_of_stock (listed products with available=0), low_stock (available ≤ 10), sync_error (listings with status=error), and request_error (requests with status=error) items. Severity + type + search filters. Click-through to the source entity (`/products/:id`, `/listings/:id`, `/requests`). Also supports `#alert-id` hash focus so any "error" click elsewhere can deep-link here.
+- **Listings & Channels stock KPIs are actionable**: new Low Stock KPI card (≤ 10 available) alongside Out of Stock. Clicking either card toggles the `lf-stock` filter — a second click clears. Sync-errors card links to `/alerts`.
+- **Sidebar + routes**: added Segments, Request History (Operations), Alerts (Setup) links + all corresponding `/segments`, `/segments/:id`, `/requests`, `/alerts` routes.
+
+## Deferred to Phase 2 (asked but not built in this iteration)
+- FastAPI/Neon backend persistence for all entities (state is still client-side; user's Node.js export in `/app/backend-nodejs/` remains the source-of-truth template).
+- Analytics advanced filter condition builder (attribute + operator + AND/OR).
+- Searchable dropdowns across the app.
+- Dashboard: click-KPI to change date range, custom dashlet builder.
+
 ## Implemented (2026-02-15) — Revenue Attribution + Stock Management + Report Builder
 - **Order-driven stock blocking**: Orders now carry `line_items[]` with master_id + qty + unit_price. Orders in placed/processing/shipped status *block* stock (visible as new "Blocked" column on Master Products & Listings/Channels). Available = Stock − Blocked. Delivered orders physically consume stock; cancelled orders release the block; returned orders restock.
 - **Revenue lifecycle**: `revenueSummary` computes Pending (open orders), Confirmed (delivered orders), Refunded (from refunded returns), Net (Confirmed − Refunded). Dashboard + Analytics both show colour-coded KPI grid.
