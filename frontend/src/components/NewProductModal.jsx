@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { X, Save, HelpCircle, Info } from "lucide-react";
+import { X, Save, HelpCircle, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { useStore } from "@/store/StoreContext";
 import ImageUploader from "./ImageUploader";
 import ProductionGuide from "./ProductionGuide";
+import ChannelAttributesEditor from "./ChannelAttributesEditor";
 import { toast } from "sonner";
 
 const FALLBACK_IMG = "https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg?auto=compress&cs=tinysrgb&w=300";
@@ -25,6 +26,9 @@ export default function NewProductModal({ onClose }) {
   });
   const [errors, setErrors] = useState({});
   const [showGuide, setShowGuide] = useState(false);
+  const [showAttrs, setShowAttrs] = useState(true);
+  const [channelAttrs, setChannelAttrs] = useState({});
+  const [customAttrs, setCustomAttrs] = useState({});
 
   const update = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -65,9 +69,12 @@ export default function NewProductModal({ onClose }) {
       stock_mode: form.stock_mode,
       option_axes: form.option_axes,
       updated: new Date().toISOString().slice(0, 10),
+      channel_attributes: channelAttrs,
+      custom_attributes: customAttrs,
     };
     addProducts([product]);
-    toast.success(`${product.title} created`, { description: `${form.images.length || 0} image${form.images.length !== 1 ? "s" : ""} uploaded · SKU ${product.sku}` });
+    const totalFilled = Object.values(channelAttrs).reduce((n, section) => n + Object.keys(section || {}).length, 0);
+    toast.success(`${product.title} created`, { description: `${form.images.length || 0} images · ${totalFilled} channel attributes filled · SKU ${product.sku}` });
     onClose();
   };
 
@@ -76,7 +83,7 @@ export default function NewProductModal({ onClose }) {
   return (
     <>
       <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-6" data-testid="new-product-modal">
-        <div className="bg-white w-full max-w-4xl max-h-[92vh] flex flex-col border border-[var(--border)]">
+        <div className="bg-white w-full max-w-6xl max-h-[92vh] flex flex-col border border-[var(--border)]">
           <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
             <div>
               <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Central Inventory</div>
@@ -90,7 +97,8 @@ export default function NewProductModal({ onClose }) {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             {/* Left column — attributes */}
             <div className="space-y-4">
               <div>
@@ -177,6 +185,33 @@ export default function NewProductModal({ onClose }) {
               <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold mb-3">Product Images (max 6)</div>
               <ImageUploader value={form.images} onChange={imgs => update("images", imgs)} max={6} />
             </div>
+          </div>
+
+          {/* Channel-specific attributes (full width, below the 2-col form) */}
+          <div className="border-t border-[var(--border)]">
+            <button
+              data-testid="toggle-channel-attrs"
+              onClick={() => setShowAttrs(v => !v)}
+              className="w-full px-6 py-3 flex items-center justify-between hover:bg-[var(--surface)] transition-colors"
+            >
+              <div className="text-left">
+                <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Channel-Specific Schema</div>
+                <div className="text-[13px] font-medium mt-0.5">Amazon · Flipkart · Shopify · WooCommerce attributes for <span className="text-[var(--primary)]">{form.category}</span></div>
+              </div>
+              {showAttrs ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {showAttrs && (
+              <div className="px-6 pb-6">
+                <ChannelAttributesEditor
+                  category={form.category}
+                  values={channelAttrs}
+                  onChange={setChannelAttrs}
+                  customAttrs={customAttrs}
+                  onCustomChange={setCustomAttrs}
+                />
+              </div>
+            )}
+          </div>
           </div>
 
           <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--surface)] flex items-center justify-between">

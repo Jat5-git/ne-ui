@@ -9,6 +9,7 @@ import ListChannelDrawer from "@/components/ListChannelDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
 import StockAllocationDrawer from "@/components/StockAllocationDrawer";
 import ImageGallery from "@/components/ImageGallery";
+import ChannelAttributesEditor from "@/components/ChannelAttributesEditor";
 
 const fmt = (n) => "₹" + (n || 0).toLocaleString("en-IN");
 const CHANNEL_COLORS = { amazon: "#FF9900", shopify: "#7AB55C", flipkart: "#2874F0", woocommerce: "#7F54B3" };
@@ -287,31 +288,19 @@ export default function ProductDetail() {
         )}
 
         {tab === "attributes" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="border border-[var(--border)] p-5">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold mb-3">Attribute Schema</div>
-              {schema ? (
-                <>
-                  <div className="font-display text-lg font-black tracking-tight">{schema.name}</div>
-                  <div className="text-[11px] text-[var(--fg-muted)] mt-1">Applied to {schema.used_by} products · {schema.categories.join(", ")}</div>
-                  <div className="mt-4 space-y-2">
-                    {schema.fields.map(f => (
-                      <div key={f} className="flex items-center justify-between text-[13px] py-2 border-b border-[var(--border)] last:border-b-0">
-                        <span className="text-[var(--fg-muted)]">{f}</span>
-                        <span className="tabular text-[11px] font-medium">— not set —</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-[13px] text-[var(--fg-muted)] italic p-6 text-center border border-dashed border-[var(--border)]">No schema applied to this category yet. Link a schema in the Catalogue section.</div>
-              )}
-            </div>
+          <div className="space-y-6">
+            <ChannelAttributesEditor
+              category={product.category}
+              values={product.channel_attributes || {}}
+              onChange={() => { /* read-only preview on detail page */ }}
+              customAttrs={product.custom_attributes || {}}
+              onCustomChange={() => {}}
+            />
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="border border-[var(--border)] p-5">
                 <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold mb-3">Option Axes</div>
-                {(product.option_axes || []).length === 0 && <div className="text-[12px] text-[var(--fg-muted)] italic">No option axes defined. Click the Variants button to add Size, Color, Style, etc.</div>}
+                {(product.option_axes || []).length === 0 && <div className="text-[12px] text-[var(--fg-muted)] italic">No option axes defined.</div>}
                 {(product.option_axes || []).map(axis => (
                   <div key={axis.name} className="mb-3 last:mb-0">
                     <div className="flex items-baseline justify-between mb-1.5">
