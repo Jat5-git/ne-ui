@@ -4,7 +4,7 @@ import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
 import { REVENUE_TREND } from "@/data/seed";
-import { ArrowUpRight, ArrowDownRight, AlertTriangle, Package, Radio, TrendingUp } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, AlertTriangle, Package, Radio, TrendingUp, Clock, CheckCircle2, Undo2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const fmt = (n) => "₹" + n.toLocaleString("en-IN");
@@ -32,12 +32,13 @@ function Kpi({ label, value, delta, deltaLabel, icon: Icon, danger, testid }) {
 }
 
 export default function Dashboard() {
-  const { listings, channels, auditLog, products } = useStore();
+  const { listings, channels, auditLog, products, revenueSummary } = useStore();
   const totalListings = listings.length;
   const outOfStock = listings.filter(l => l.stock === 0).length;
   const totalRevenue = listings.reduce((s, l) => s + l.revenue_30d, 0);
   const syncErrors = listings.filter(l => l.status === "error").length;
   const draftCount = products.filter(p => p.status === "draft" || p.status === "unlisted").length;
+  const { pending, confirmed, refunded, net } = revenueSummary;
 
   const byChannel = channels.map(c => ({
     name: c.name.split(" ")[0],
@@ -65,6 +66,41 @@ export default function Dashboard() {
           <div className="border-r border-b lg:border-b-0 border-[var(--border)]"><Kpi testid="kpi-oos" label="Out of Stock" value={outOfStock.toString()} delta={-2.1} deltaLabel="vs last week" icon={Package} danger={outOfStock > 0} /></div>
           <div className="border-r border-b sm:border-b-0 border-[var(--border)]"><Kpi testid="kpi-revenue" label="Revenue (30d)" value={fmt(totalRevenue)} delta={12.7} deltaLabel="vs previous 30d" icon={TrendingUp} /></div>
           <div><Kpi testid="kpi-errors" label="Sync Errors" value={syncErrors.toString()} delta={-4.0} deltaLabel="vs last week" icon={AlertTriangle} danger={syncErrors > 0} /></div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0 border border-[var(--border)]" data-testid="revenue-kpi-grid">
+          <div className="p-5 border-r border-b lg:border-b-0 border-[var(--border)] bg-[#FFF7E6]" data-testid="kpi-pending-rev">
+            <div className="flex items-start justify-between mb-3">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Pending Revenue</span>
+              <Clock size={14} className="text-[var(--warning)]" />
+            </div>
+            <div className="text-[24px] font-display font-black tracking-tight leading-none tabular text-[var(--warning)]">{fmt(pending)}</div>
+            <div className="mt-2 text-[11px] text-[var(--fg-muted)]">Open orders — will be added once delivered</div>
+          </div>
+          <div className="p-5 border-r border-b lg:border-b-0 border-[var(--border)] bg-[#E6F4EA]" data-testid="kpi-confirmed-rev">
+            <div className="flex items-start justify-between mb-3">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Confirmed Revenue</span>
+              <CheckCircle2 size={14} className="text-[var(--success)]" />
+            </div>
+            <div className="text-[24px] font-display font-black tracking-tight leading-none tabular text-[var(--success)]">{fmt(confirmed)}</div>
+            <div className="mt-2 text-[11px] text-[var(--fg-muted)]">Delivered orders — before refunds</div>
+          </div>
+          <div className="p-5 border-r border-b sm:border-b-0 border-[var(--border)] bg-[#FDECEA]" data-testid="kpi-refunded">
+            <div className="flex items-start justify-between mb-3">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Refunded</span>
+              <Undo2 size={14} className="text-[var(--danger)]" />
+            </div>
+            <div className="text-[24px] font-display font-black tracking-tight leading-none tabular text-[var(--danger)]">−{fmt(refunded)}</div>
+            <div className="mt-2 text-[11px] text-[var(--fg-muted)]">Deducted from confirmed revenue</div>
+          </div>
+          <div className="p-5" data-testid="kpi-net-rev">
+            <div className="flex items-start justify-between mb-3">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--fg-muted)] font-semibold">Net Revenue</span>
+              <TrendingUp size={14} className="text-[var(--fg-muted)]" />
+            </div>
+            <div className="text-[24px] font-display font-black tracking-tight leading-none tabular">{fmt(net)}</div>
+            <div className="mt-2 text-[11px] text-[var(--fg-muted)]">Confirmed − Refunded</div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

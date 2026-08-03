@@ -1,0 +1,41 @@
+{
+  "summary": "Frontend-only regression on new Revenue Attribution + Stock Management + Report Builder features. Executed a full end-to-end Playwright flow using client-side sidebar navigation (state lives in React Context, so page.goto() full reloads reset all mutations). All 14 listed features work as spec'd: KPI math, blocked/available columns, order lifecycle transitions correctly update blocked counts and revenue KPIs, returns restock and refund correctly, lf-stock filter works, Analytics Report Builder handles all 4 report types, filters, column picker and CSV export. Zero console/page errors across all pages.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Master Products", "issues": ["When Blocked=0, cell shows '—' which is fine; when Blocked>0 it shows just a number (no visual badge/highlight). Task described a 'blocked=2 badge'. Current rendering is a plain right-aligned number. Minor cosmetic gap only — not a functional issue."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_7.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "StoreContext.jsx applyOrderDelivery and applyReturnRestock: setListings closure references `products` captured at hook-creation time rather than latest state; works today but can drift if these are chained. Consider useCallback deps or functional setListings that reads products via setProducts callback pattern.",
+    "Revenue KPI math (Confirmed − Refunded = Net) verified numerically: 50968 − 6824 = 44144 ✓, then after +14999 refund 63966 − 21823 = 42143 ✓.",
+    "lf-stock option values are 'all' | 'in_stock' | 'low' | 'out'. Documented for next agents (task text uses hyphenated names loosely).",
+    "Analytics 'low' stock filter produced 0 rows on current seed — reasonable given seed data but consider defining threshold or highlighting in UI so users know why."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "seed_data_creation": "No new seed data created; existing seed exercised as-is",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "State (orders/returns/products/listings) is stored in React Context in StoreContext.jsx — a full-page reload via page.goto() will reset ALL mutations. To assert lifecycle transitions across pages, ALWAYS use client-side navigation (click sidebar `<a>` links) instead of page.goto(). Expected math: baseline pending=68201, confirmed=50968, refunded=6824, net=44144. After delivering ord_10241 (₹12,998), pending→55203, confirmed→63966. After cancelling ord_10245 (₹22,456), pending→32747. After refunding ret_302 (₹14,999), refunded→21823, net→42143. ret_301 received → mp_003 stock 412→413. All verified.",
+  "verified_features": {
+    "dashboard_revenue_kpis_math": "PASS — Confirmed − Refunded = Net (44144)",
+    "master_products_blocked_available": "PASS — mp_001 blocked=2 avail=238; mp_002 blocked=2 avail=156; mp_003 blocked=2 avail=410; mp_004 blocked=3 avail=81",
+    "listings_grouped_blocked_available_headers": "PASS — group + expanded per-channel Stock/Blocked/Available all rendered",
+    "lf_stock_filter": "PASS — all=6, in_stock=5, low=0, out=1 (values: all|in_stock|low|out)",
+    "orders_advance_delivered": "PASS — ord_10241 shipped→delivered, pending −₹12,998, confirmed +₹12,998",
+    "orders_cancel": "PASS — ord_10245 cancelled, mp_002 blocked 2→0, mp_003 blocked 2→0",
+    "orders_return_flow": "PASS — return modal opens, item/qty/reason set, submit creates return (returns count 3→4)",
+    "returns_advance_received_restocks": "PASS — ret_301 in_transit→received, mp_003 stock 412→413",
+    "returns_advance_refunded_updates_revenue": "PASS — ret_302 received→refunded, refunded +₹14,999, net −₹14,999",
+    "analytics_report_builder_types": "PASS — listings=14, revenue=9, stock=8, channel_summary=4 rows",
+    "analytics_status_filter_delivered": "PASS — revenue rows 9→4 when Status=delivered",
+    "analytics_column_picker": "PASS — hiding Price removes column from preview and CSV",
+    "analytics_csv_export": "PASS — file listings_2026-08-03.csv downloaded, 15 lines (14 rows + header), Price column absent after hide",
+    "no_console_errors_cross_nav": "PASS — 0 pageerrors across /, /analytics, /orders, /returns, /products, /listings, /channels, /catalogue, /attributes"
+  }
+}

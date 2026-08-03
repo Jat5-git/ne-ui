@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill, SyncBadge } from "@/components/Pills";
-import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers, Boxes, Split } from "lucide-react";
+import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers, Boxes, Split, Lock } from "lucide-react";
 import CsvImportWizard from "@/components/CsvImportWizard";
 import ListChannelDrawer from "@/components/ListChannelDrawer";
 import ProductListingsDrawer from "@/components/ProductListingsDrawer";
@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 export default function MasterProducts() {
-  const { products, getVariants } = useStore();
+  const { products, getVariants, blockedForProduct, availableStock } = useStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -111,6 +111,8 @@ export default function MasterProducts() {
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Category</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">MRP</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Blocked</th>
+                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Available</th>
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Variants</th>
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sync Status</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)] w-64">Actions</th>
@@ -121,6 +123,8 @@ export default function MasterProducts() {
                 const vs = getVariants(p.id);
                 const vStock = vs.reduce((s, v) => s + v.stock, 0);
                 const displayStock = p.stock;  // master pool always primary
+                const blocked = blockedForProduct(p.id);
+                const available = availableStock(p.id);
                 return (
                 <tr key={p.id} className="row-hover border-b border-[var(--border)] last:border-b-0" data-testid={`product-row-${p.id}`}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} data-testid={`select-${p.id}`} /></td>
@@ -154,6 +158,16 @@ export default function MasterProducts() {
                         <span className="text-[10px] text-[var(--fg-muted)] font-normal tabular">{vStock} in variants</span>
                       )}
                     </button>
+                  </td>
+                  <td className="p-3 text-right tabular" data-testid={`blocked-${p.id}`}>
+                    {blocked > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 border border-[var(--warning)] text-[var(--warning)] bg-[#FFF7E6] text-[11px] font-medium" title="Units reserved by open orders (placed/processing/shipped)">
+                        <Lock size={9} />{blocked}
+                      </span>
+                    ) : <span className="text-[var(--fg-muted)] text-[11px]">—</span>}
+                  </td>
+                  <td className={`p-3 text-right tabular font-medium ${available === 0 ? "text-[var(--danger)]" : "text-[var(--success)]"}`} data-testid={`available-${p.id}`} title="On-hand stock − blocked">
+                    {available}
                   </td>
                   <td className="p-3">
                     {vs.length > 0 ? (
@@ -196,7 +210,7 @@ export default function MasterProducts() {
                 </tr>
               );})}
               {filtered.length === 0 && (
-                <tr><td colSpan={9} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
+                <tr><td colSpan={11} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
               )}
             </tbody>
           </table>

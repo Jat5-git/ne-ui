@@ -9,21 +9,25 @@ import { toast } from "sonner";
 const fmt = (n) => "₹" + n.toLocaleString("en-IN");
 
 export default function ListingsAndChannels() {
-  const { listings, channels, effectiveStock, products } = useStore();
+  const { listings, channels, effectiveStock, products, blockedForProduct, blockedForChannel, availableForListing } = useStore();
   const [query, setQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all"); // all | in_stock | low | out
   const [view, setView] = useState("grouped");
   const [expanded, setExpanded] = useState(new Set());
 
-  const enriched = useMemo(() => listings.map(l => ({ ...l, live_stock: effectiveStock(l) })), [listings, effectiveStock]);
+  const enriched = useMemo(() => listings.map(l => ({ ...l, live_stock: effectiveStock(l), available: availableForListing(l), blocked: blockedForChannel(l.master_id, l.channel) })), [listings, effectiveStock, availableForListing, blockedForChannel]);
 
   const filtered = useMemo(() => enriched.filter(l => {
     if (channelFilter !== "all" && l.channel !== channelFilter) return false;
     if (statusFilter !== "all" && l.status !== statusFilter) return false;
+    if (stockFilter === "in_stock" && l.available <= 0) return false;
+    if (stockFilter === "low" && (l.available === 0 || l.available > 10)) return false;
+    if (stockFilter === "out" && l.available > 0) return false;
     if (query && !l.title.toLowerCase().includes(query.toLowerCase()) && !l.master_sku.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
-  }), [enriched, query, channelFilter, statusFilter]);
+  }), [enriched, query, channelFilter, statusFilter, stockFilter]);
 
   // Group by master_sku — one row per unique product
   const grouped = useMemo(() => {
@@ -45,20 +49,21 @@ export default function ListingsAndChannels() {
       map.get(key).rows.push(l);
     });
     return Array.from(map.values()).map(g => {
-      // In central mode, total stock is the master pool (not the sum of duplicated pool numbers).
       const totalStock = g.stock_mode === "central" ? g.master_pool : g.rows.reduce((s, r) => s + r.live_stock, 0);
+      const blockedTotal = blockedForProduct(g.master_id);
+      const availableTotal = Math.max(0, totalStock - blockedTotal);
       const totalRev = g.rows.reduce((s, r) => s + r.revenue_30d, 0);
       const totalUnits = g.rows.reduce((s, r) => s + r.units_sold_30d, 0);
       const errorCount = g.rows.filter(r => r.status === "error").length;
       const activeCount = g.rows.filter(r => r.status === "active").length;
       const pausedCount = g.rows.filter(r => r.status === "paused").length;
-      const oosCount = g.rows.filter(r => r.live_stock === 0).length;
+      const oosCount = g.rows.filter(r => r.available === 0).length;
       const priceMin = Math.min(...g.rows.map(r => r.price));
       const priceMax = Math.max(...g.rows.map(r => r.price));
       const lastSync = g.rows.map(r => r.last_synced).sort().reverse()[0];
-      return { ...g, totalStock, totalRev, totalUnits, errorCount, activeCount, pausedCount, oosCount, priceMin, priceMax, lastSync };
+      return { ...g, totalStock, blockedTotal, availableTotal, totalRev, totalUnits, errorCount, activeCount, pausedCount, oosCount, priceMin, priceMax, lastSync };
     });
-  }, [filtered, products]);
+  }, [filtered, products, blockedForProduct]);
 
   const toggleExpand = (sku) => {
     setExpanded(prev => {
@@ -130,6 +135,12 @@ export default function ListingsAndChannels() {
             <option value="paused">Paused</option>
             <option value="error">Error</option>
           </select>
+          <select data-testid="lf-stock" value={stockFilter} onChange={e => setStockFilter(e.target.value)} className="border border-[var(--border)] px-2.5 py-1.5 text-[12px] bg-white">
+            <option value="all">All stock</option>
+            <option value="in_stock">In stock</option>
+            <option value="low">Low (≤ 10)</option>
+            <option value="out">Out of stock</option>
+          </select>
           <div className="flex items-center border border-[var(--border)] divide-x divide-[var(--border)]">
             <button data-testid="view-grouped" onClick={() => setView("grouped")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "grouped" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><LayoutGrid size={12} />Grouped</button>
             <button data-testid="view-flat" onClick={() => setView("flat")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "flat" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><Rows3 size={12} />Flat</button>
@@ -156,6 +167,8 @@ export default function ListingsAndChannels() {
                   <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Master SKU</th>
                   <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channels</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Blocked</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Available</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Price Range</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sold 30d</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Revenue 30d</th>
@@ -214,6 +227,10 @@ export default function ListingsAndChannels() {
                           )}
                         </td>
                         <td className={`p-3 text-right tabular font-medium ${g.totalStock === 0 ? "text-[var(--danger)]" : ""}`}>{g.totalStock}</td>
+                        <td className="p-3 text-right tabular">
+                          {g.blockedTotal > 0 ? <span className="inline-flex items-center px-1.5 py-0.5 border border-[var(--warning)] text-[var(--warning)] bg-[#FFF7E6] text-[11px] font-medium" title="Reserved by open orders">{g.blockedTotal}</span> : <span className="text-[var(--fg-muted)] text-[11px]">—</span>}
+                        </td>
+                        <td className={`p-3 text-right tabular font-medium ${g.availableTotal === 0 ? "text-[var(--danger)]" : "text-[var(--success)]"}`}>{g.availableTotal}</td>
                         <td className="p-3 text-right tabular text-[12px]">
                           {g.priceMin === g.priceMax ? fmt(g.priceMin) : <span className="text-[var(--fg-muted)]">{fmt(g.priceMin)} — {fmt(g.priceMax)}</span>}
                         </td>
@@ -232,6 +249,8 @@ export default function ListingsAndChannels() {
                                     <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Channel SKU</th>
                                     <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Status</th>
                                     <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Stock</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Blocked</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Available</th>
                                     <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Price</th>
                                     <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Sold 30d</th>
                                     <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Revenue 30d</th>
@@ -249,6 +268,10 @@ export default function ListingsAndChannels() {
                                         {r.live_stock}
                                         {g.stock_mode === "central" && <span className="ml-1 text-[9px] text-[var(--fg-muted)] uppercase tracking-widest">shared</span>}
                                       </td>
+                                      <td className="py-2 text-right tabular">
+                                        {r.blocked > 0 ? <span className="inline-flex items-center px-1.5 py-0.5 border border-[var(--warning)] text-[var(--warning)] bg-[#FFF7E6] text-[10px] font-medium">{r.blocked}</span> : <span className="text-[var(--fg-muted)] text-[10px]">—</span>}
+                                      </td>
+                                      <td className={`py-2 text-right tabular ${r.available === 0 ? "text-[var(--danger)] font-medium" : "text-[var(--success)] font-medium"}`}>{r.available}</td>
                                       <td className="py-2 text-right tabular font-medium">{fmt(r.price)}</td>
                                       <td className="py-2 text-right tabular">{r.units_sold_30d}</td>
                                       <td className="py-2 text-right tabular">{fmt(r.revenue_30d)}</td>
@@ -269,7 +292,7 @@ export default function ListingsAndChannels() {
                   );
                 })}
                 {grouped.length === 0 && (
-                  <tr><td colSpan={9} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
+                  <tr><td colSpan={11} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
                 )}
               </tbody>
             </table>
@@ -285,6 +308,8 @@ export default function ListingsAndChannels() {
                   <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channel SKU</th>
                   <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Status</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Blocked</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Available</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Price</th>
                   <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sold 30d</th>
                   <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Last Sync</th>
@@ -305,6 +330,10 @@ export default function ListingsAndChannels() {
                     <td className="p-3 tabular text-[12px] text-[var(--fg-muted)]">{l.channel_sku}</td>
                     <td className="p-3"><StatusPill status={l.status} /></td>
                     <td className={`p-3 text-right tabular ${l.live_stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{l.live_stock}</td>
+                    <td className="p-3 text-right tabular">
+                      {l.blocked > 0 ? <span className="inline-flex items-center px-1.5 py-0.5 border border-[var(--warning)] text-[var(--warning)] bg-[#FFF7E6] text-[11px] font-medium">{l.blocked}</span> : <span className="text-[var(--fg-muted)] text-[11px]">—</span>}
+                    </td>
+                    <td className={`p-3 text-right tabular ${l.available === 0 ? "text-[var(--danger)] font-medium" : "text-[var(--success)] font-medium"}`}>{l.available}</td>
                     <td className="p-3 text-right tabular font-medium">{fmt(l.price)}</td>
                     <td className="p-3 text-right tabular">{l.units_sold_30d}</td>
                     <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{l.last_synced}</td>
@@ -316,7 +345,7 @@ export default function ListingsAndChannels() {
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={10} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
+                  <tr><td colSpan={12} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
                 )}
               </tbody>
             </table>

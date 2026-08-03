@@ -131,20 +131,42 @@ const buildVariants = () => {
 
 export const VARIANTS = buildVariants();
 
+// Orders carry line_items so we can attribute blocked stock & revenue to a specific master product/channel.
+// Status flow: placed → processing → shipped → delivered   |   cancelled (any pre-delivered)
+// Stock effect: placed/processing/shipped → BLOCKED (available = stock − blocked)
+//               delivered → stock physically decremented, blocked released
+//               cancelled → blocked released, stock untouched
+// Revenue: placed/processing/shipped → PENDING   |   delivered → CONFIRMED
 export const ORDERS = [
-  { id: "ord_10241", channel: "amazon", channel_order_id: "AMZ-402-9931", customer: "Ravi K.", items: 2, total: 12998, status: "shipped", date: "2026-02-14" },
-  { id: "ord_10242", channel: "shopify", channel_order_id: "SHP-#4021", customer: "Maya S.", items: 1, total: 6499, status: "processing", date: "2026-02-14" },
-  { id: "ord_10243", channel: "flipkart", channel_order_id: "FLP-OD119", customer: "Arjun P.", items: 3, total: 15497, status: "delivered", date: "2026-02-13" },
-  { id: "ord_10244", channel: "amazon", channel_order_id: "AMZ-402-9945", customer: "Neha D.", items: 1, total: 12499, status: "shipped", date: "2026-02-13" },
-  { id: "ord_10245", channel: "shopify", channel_order_id: "SHP-#4028", customer: "Karan M.", items: 2, total: 22497, status: "pending", date: "2026-02-12" },
-  { id: "ord_10246", channel: "woocommerce", channel_order_id: "WOO-8812", customer: "Priya L.", items: 1, total: 14999, status: "delivered", date: "2026-02-11" },
-  { id: "ord_10247", channel: "flipkart", channel_order_id: "FLP-OD120", customer: "Sameer T.", items: 1, total: 3199, status: "cancelled", date: "2026-02-10" },
+  { id: "ord_10241", channel: "amazon", channel_order_id: "AMZ-402-9931", customer: "Ravi K.", status: "shipped", date: "2026-02-14",
+    line_items: [{ master_id: "mp_001", master_sku: "STR-RUN-001", qty: 1, unit_price: 6824 }, { master_id: "mp_004", master_sku: "PLS-WCH-101", qty: 1, unit_price: 6174 }] },
+  { id: "ord_10242", channel: "shopify", channel_order_id: "SHP-#4021", customer: "Maya S.", status: "processing", date: "2026-02-14",
+    line_items: [{ master_id: "mp_001", master_sku: "STR-RUN-001", qty: 1, unit_price: 6499 }] },
+  { id: "ord_10243", channel: "flipkart", channel_order_id: "FLP-OD119", customer: "Arjun P.", status: "delivered", date: "2026-02-13",
+    line_items: [{ master_id: "mp_003", master_sku: "STR-CAS-010", qty: 2, unit_price: 3263 }, { master_id: "mp_001", master_sku: "STR-RUN-001", qty: 1, unit_price: 8971 }] },
+  { id: "ord_10244", channel: "amazon", channel_order_id: "AMZ-402-9945", customer: "Neha D.", status: "shipped", date: "2026-02-13",
+    line_items: [{ master_id: "mp_004", master_sku: "PLS-WCH-101", qty: 1, unit_price: 12499 }] },
+  { id: "ord_10245", channel: "shopify", channel_order_id: "SHP-#4028", customer: "Karan M.", status: "placed", date: "2026-02-12",
+    line_items: [{ master_id: "mp_002", master_sku: "STR-RUN-002", qty: 2, unit_price: 8029 }, { master_id: "mp_003", master_sku: "STR-CAS-010", qty: 2, unit_price: 3199 }] },
+  { id: "ord_10246", channel: "woocommerce", channel_order_id: "WOO-8812", customer: "Priya L.", status: "delivered", date: "2026-02-11",
+    line_items: [{ master_id: "mp_006", master_sku: "HRT-CFM-201", qty: 1, unit_price: 14999 }] },
+  { id: "ord_10247", channel: "flipkart", channel_order_id: "FLP-OD120", customer: "Sameer T.", status: "cancelled", date: "2026-02-10",
+    line_items: [{ master_id: "mp_003", master_sku: "STR-CAS-010", qty: 1, unit_price: 3199 }] },
+  { id: "ord_10248", channel: "amazon", channel_order_id: "AMZ-402-9962", customer: "Lakshmi V.", status: "delivered", date: "2026-02-09",
+    line_items: [{ master_id: "mp_001", master_sku: "STR-RUN-001", qty: 3, unit_price: 6824 }] },
+  { id: "ord_10249", channel: "shopify", channel_order_id: "SHP-#4035", customer: "Aditya R.", status: "placed", date: "2026-02-15",
+    line_items: [{ master_id: "mp_004", master_sku: "PLS-WCH-101", qty: 1, unit_price: 13749 }] },
 ];
 
+// Returns carry line items with refund_amounts. Status: requested → in_transit → received → refunded (or rejected)
+// Stock restored when received. Refund amount deducted from revenue when refunded.
 export const RETURNS = [
-  { id: "ret_301", order_id: "ord_10243", channel: "flipkart", sku: "STR-CAS-010", reason: "Wrong size", status: "in_transit", date: "2026-02-13" },
-  { id: "ret_302", order_id: "ord_10246", channel: "woocommerce", sku: "HRT-CFM-201", reason: "Defective", status: "received", date: "2026-02-12" },
-  { id: "ret_303", order_id: "ord_10244", channel: "amazon", sku: "PLS-WCH-101", reason: "Changed mind", status: "refunded", date: "2026-02-11" },
+  { id: "ret_301", order_id: "ord_10243", channel: "flipkart", reason: "Wrong size", status: "in_transit", date: "2026-02-13",
+    line_items: [{ master_id: "mp_003", master_sku: "STR-CAS-010", qty: 1, refund_amount: 3263 }] },
+  { id: "ret_302", order_id: "ord_10246", channel: "woocommerce", reason: "Defective", status: "received", date: "2026-02-12",
+    line_items: [{ master_id: "mp_006", master_sku: "HRT-CFM-201", qty: 1, refund_amount: 14999 }] },
+  { id: "ret_303", order_id: "ord_10248", channel: "amazon", reason: "Changed mind", status: "refunded", date: "2026-02-11",
+    line_items: [{ master_id: "mp_001", master_sku: "STR-RUN-001", qty: 1, refund_amount: 6824 }] },
 ];
 
 export const AUDIT_LOG = [
