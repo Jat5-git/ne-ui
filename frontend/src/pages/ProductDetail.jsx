@@ -53,7 +53,7 @@ const DATE_RANGES = [
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, listings, getVariants, effectiveStock, auditLog, categories, schemas, brands } = useStore();
+  const { products, listings, getVariants, effectiveStock, auditLog, categories, schemas, brands, updateProduct } = useStore();
   const product = products.find(p => p.id === id);
   const [tab, setTab] = useState("overview");
   const [dateRange, setDateRange] = useState("30");
@@ -292,9 +292,9 @@ export default function ProductDetail() {
             <ChannelAttributesEditor
               category={product.category}
               values={product.channel_attributes || {}}
-              onChange={() => { /* read-only preview on detail page */ }}
+              onChange={(next) => updateProduct(product.id, { channel_attributes: next })}
               customAttrs={product.custom_attributes || {}}
-              onCustomChange={() => {}}
+              onCustomChange={(next) => updateProduct(product.id, { custom_attributes: next })}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

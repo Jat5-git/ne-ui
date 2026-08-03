@@ -2,9 +2,10 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
-import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3 } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3, Edit3, PackageX } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import EditListingModal from "@/components/EditListingModal";
 
 const fmt = (n) => "₹" + n.toLocaleString("en-IN");
 
@@ -16,6 +17,7 @@ export default function ListingsAndChannels() {
   const [stockFilter, setStockFilter] = useState("all"); // all | in_stock | low | out
   const [view, setView] = useState("grouped");
   const [expanded, setExpanded] = useState(new Set());
+  const [editListing, setEditListing] = useState(null);
 
   const enriched = useMemo(() => listings.map(l => ({ ...l, live_stock: effectiveStock(l), available: availableForListing(l), blocked: blockedForChannel(l.master_id, l.channel) })), [listings, effectiveStock, availableForListing, blockedForChannel]);
 
@@ -78,7 +80,8 @@ export default function ListingsAndChannels() {
 
   const activeCount = enriched.filter(l => l.status === "active").length;
   const errCount = enriched.filter(l => l.status === "error").length;
-  const oosCount = enriched.filter(l => l.live_stock === 0).length;
+  const oosCount = enriched.filter(l => l.available === 0).length;
+  const lowCount = enriched.filter(l => l.available > 0 && l.available <= 10).length;
   const totalRev = enriched.reduce((s, l) => s + l.revenue_30d, 0);
 
   const syncAll = () => {
@@ -99,23 +102,30 @@ export default function ListingsAndChannels() {
       />
 
       <div className="px-8 py-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 border border-[var(--border)]">
+        <div className="grid grid-cols-2 md:grid-cols-5 border border-[var(--border)]">
           <div className="p-4 border-r border-[var(--border)]">
             <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Total Active</div>
             <div className="text-2xl font-display font-black tabular mt-1">{activeCount}</div>
           </div>
-          <div className="p-4 border-r border-[var(--border)]">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Out of Stock</div>
+          <button data-testid="kpi-out-of-stock" onClick={() => setStockFilter(stockFilter === "out" ? "all" : "out")} className={`p-4 border-r border-[var(--border)] text-left transition-colors ${stockFilter === "out" ? "bg-[#FDECEA]" : "hover:bg-[var(--surface)]"}`}>
+            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold flex items-center gap-1"><PackageX size={11} />Out of Stock</div>
             <div className={`text-2xl font-display font-black tabular mt-1 ${oosCount > 0 ? "text-[var(--danger)]" : ""}`}>{oosCount}</div>
-          </div>
+            <div className="text-[10px] text-[var(--fg-muted)] mt-0.5">{stockFilter === "out" ? "Filter active — click to clear" : "Click to filter"}</div>
+          </button>
+          <button data-testid="kpi-low-stock" onClick={() => setStockFilter(stockFilter === "low" ? "all" : "low")} className={`p-4 border-r border-[var(--border)] text-left transition-colors ${stockFilter === "low" ? "bg-[#FFF7E6]" : "hover:bg-[var(--surface)]"}`}>
+            <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold flex items-center gap-1"><AlertTriangle size={11} />Low Stock</div>
+            <div className={`text-2xl font-display font-black tabular mt-1 ${lowCount > 0 ? "text-[var(--warning)]" : ""}`}>{lowCount}</div>
+            <div className="text-[10px] text-[var(--fg-muted)] mt-0.5">{stockFilter === "low" ? "Filter active" : "≤ 10 units · click to filter"}</div>
+          </button>
           <div className="p-4 border-r border-[var(--border)]">
             <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Revenue (30d)</div>
             <div className="text-2xl font-display font-black tabular mt-1">{fmt(totalRev)}</div>
           </div>
-          <div className={`p-4 ${errCount > 0 ? "bg-[#FDECEA]" : ""}`}>
+          <Link to="/alerts" className={`p-4 ${errCount > 0 ? "bg-[#FDECEA]" : ""} hover:bg-[var(--surface)] transition-colors`}>
             <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold flex items-center gap-1">Sync Errors {errCount > 0 && <AlertTriangle size={11} className="text-[var(--danger)]" />}</div>
             <div className={`text-2xl font-display font-black tabular mt-1 ${errCount > 0 ? "text-[var(--danger)]" : ""}`}>{errCount}</div>
-          </div>
+            <div className="text-[10px] text-[var(--fg-muted)] mt-0.5">Click to see all alerts</div>
+          </Link>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -277,9 +287,14 @@ export default function ListingsAndChannels() {
                                       <td className="py-2 text-right tabular">{fmt(r.revenue_30d)}</td>
                                       <td className="py-2 tabular text-[10px] text-[var(--fg-muted)]">{r.last_synced}</td>
                                       <td className="py-2">
-                                        <Link to={`/listings/${r.id}`} className="p-1 hover:bg-[var(--surface-2)] block" onClick={e => e.stopPropagation()} data-testid={`open-${r.id}`}>
-                                          <ExternalLink size={12} className="text-[var(--fg-muted)]" />
-                                        </Link>
+                                        <div className="flex items-center gap-1">
+                                          <button onClick={e => { e.stopPropagation(); setEditListing(r); }} className="p-1 hover:bg-[var(--surface-2)]" data-testid={`edit-listing-${r.id}`} title="Edit listing">
+                                            <Edit3 size={11} className="text-[var(--fg-muted)]" />
+                                          </button>
+                                          <Link to={`/listings/${r.id}`} className="p-1 hover:bg-[var(--surface-2)] block" onClick={e => e.stopPropagation()} data-testid={`open-${r.id}`}>
+                                            <ExternalLink size={12} className="text-[var(--fg-muted)]" />
+                                          </Link>
+                                        </div>
                                       </td>
                                     </tr>                                  ))}
                                 </tbody>
@@ -338,9 +353,14 @@ export default function ListingsAndChannels() {
                     <td className="p-3 text-right tabular">{l.units_sold_30d}</td>
                     <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{l.last_synced}</td>
                     <td className="p-3">
-                      <Link to={`/listings/${l.id}`} className="p-1 hover:bg-[var(--surface-2)] block" data-testid={`open-${l.id}`}>
-                        <ExternalLink size={13} className="text-[var(--fg-muted)]" />
-                      </Link>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditListing(l)} className="p-1 hover:bg-[var(--surface-2)]" data-testid={`edit-flat-${l.id}`} title="Edit listing">
+                          <Edit3 size={12} className="text-[var(--fg-muted)]" />
+                        </button>
+                        <Link to={`/listings/${l.id}`} className="p-1 hover:bg-[var(--surface-2)] block" data-testid={`open-${l.id}`}>
+                          <ExternalLink size={13} className="text-[var(--fg-muted)]" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -352,6 +372,7 @@ export default function ListingsAndChannels() {
           </div>
         )}
       </div>
+      {editListing && <EditListingModal listing={editListing} onClose={() => setEditListing(null)} />}
     </>
   );
 }

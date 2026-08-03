@@ -9,6 +9,8 @@ import ProductListingsDrawer from "@/components/ProductListingsDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
 import StockAllocationDrawer from "@/components/StockAllocationDrawer";
 import NewProductModal from "@/components/NewProductModal";
+import EditProductModal from "@/components/EditProductModal";
+import CreateSegmentModal from "@/components/CreateSegmentModal";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -22,7 +24,9 @@ export default function MasterProducts() {
   const [variantsProduct, setVariantsProduct] = useState(null);
   const [stockProduct, setStockProduct] = useState(null);
   const [newProductOpen, setNewProductOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
   const [selected, setSelected] = useState(new Set());
+  const [segmentModalOpen, setSegmentModalOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter(p => {
@@ -96,6 +100,7 @@ export default function MasterProducts() {
             <span className="text-[13px] font-medium">{selected.size} selected</span>
             <div className="flex gap-2">
               <button onClick={() => setSelected(new Set())} className="px-3 py-1 text-[12px] border border-[var(--border)] bg-white hover:bg-[var(--surface)]">Clear</button>
+              <button data-testid="bulk-create-segment" onClick={() => setSegmentModalOpen(true)} className="px-3 py-1 text-[12px] border border-[var(--primary)] text-[var(--primary)] bg-white hover:bg-[#F0F4FF] flex items-center gap-1.5"><Layers size={11} />Create Segment</button>
               <button data-testid="bulk-list" onClick={bulkList} className="px-3 py-1 text-[12px] bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]">List on Channels</button>
             </div>
           </div>
@@ -196,6 +201,9 @@ export default function MasterProducts() {
                   </td>
                   <td className="p-3">
                     <div className="row-actions flex items-center gap-1 justify-end">
+                      <button data-testid={`edit-${p.id}`} onClick={() => setEditProduct(p)} className="px-2 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1 transition-colors" title="Edit attributes & sync">
+                        <Edit3 size={11} />Edit
+                      </button>
                       <button data-testid={`variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="px-2 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1 transition-colors">
                         <Layers size={11} />Variants
                       </button>
@@ -223,6 +231,8 @@ export default function MasterProducts() {
       {variantsProduct && <VariantsDrawer product={variantsProduct} onClose={() => setVariantsProduct(null)} />}
       {stockProduct && <StockAllocationDrawer product={stockProduct} onClose={() => setStockProduct(null)} />}
       {newProductOpen && <NewProductModal onClose={() => setNewProductOpen(false)} />}
+      {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} />}
+      {segmentModalOpen && <CreateSegmentModal productIds={Array.from(selected)} onClose={() => { setSegmentModalOpen(false); setSelected(new Set()); }} />}
     </>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, BarChart3, ShoppingCart, Package, Radio, Undo2, Plug, BookOpen, Boxes, Search, Command, Settings } from "lucide-react";
+import { LayoutDashboard, BarChart3, ShoppingCart, Package, Radio, Undo2, Plug, BookOpen, Boxes, Search, Command, Settings, Layers, History, AlertTriangle } from "lucide-react";
 
 const NAV = [
   {
@@ -16,7 +16,9 @@ const NAV = [
       { to: "/orders", label: "Orders", icon: ShoppingCart, testid: "nav-orders" },
       { to: "/products", label: "Master Products", icon: Package, testid: "nav-products" },
       { to: "/listings", label: "Listings & Channels", icon: Radio, testid: "nav-listings" },
+      { to: "/segments", label: "Segments", icon: Layers, testid: "nav-segments" },
       { to: "/returns", label: "Returns", icon: Undo2, testid: "nav-returns" },
+      { to: "/requests", label: "Request History", icon: History, testid: "nav-requests" },
     ],
   },
   {
@@ -25,6 +27,7 @@ const NAV = [
       { to: "/channels", label: "Channels", icon: Plug, testid: "nav-channels" },
       { to: "/catalogue", label: "Catalogue", icon: BookOpen, testid: "nav-catalogue" },
       { to: "/settings", label: "Attribute Management", icon: Settings, testid: "nav-settings" },
+      { to: "/alerts", label: "Alerts", icon: AlertTriangle, testid: "nav-alerts" },
     ],
   },
 ];
