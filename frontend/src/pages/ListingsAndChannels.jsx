@@ -182,8 +182,8 @@ export default function ListingsAndChannels() {
                               {(() => {
                                 const prod = products.find(p => p.id === g.master_id);
                                 const imgCount = (prod?.images || []).length;
-                                return imgCount > 1 ? (
-                                  <span className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 tabular font-medium" title={`${imgCount} images`}>{imgCount}</span>
+                                return imgCount >= 1 ? (
+                                  <span data-testid={`lst-img-badge-${g.master_sku}`} className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 tabular font-medium" title={`${imgCount} image${imgCount !== 1 ? "s" : ""}`}>{imgCount}</span>
                                 ) : null;
                               })()}
                             </div>

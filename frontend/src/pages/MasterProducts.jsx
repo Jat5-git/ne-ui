@@ -128,8 +128,8 @@ export default function MasterProducts() {
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <img src={p.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
-                        {(p.images || []).length > 1 && (
-                          <span className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 py-0 tabular font-medium">{p.images.length}</span>
+                        {(p.images || []).length >= 1 && (
+                          <span data-testid={`mp-img-badge-${p.id}`} className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 py-0 tabular font-medium" title={`${(p.images || []).length} image${(p.images || []).length !== 1 ? "s" : ""}`}>{(p.images || []).length}</span>
                         )}
                       </div>
                       <div>
