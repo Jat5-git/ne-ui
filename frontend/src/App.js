@@ -14,6 +14,7 @@ import ListingDetail from "@/pages/ListingDetail";
 import Returns from "@/pages/Returns";
 import Channels from "@/pages/Channels";
 import Catalogue from "@/pages/Catalogue";
+import Settings from "@/pages/Settings";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="/returns" element={<Returns />} />
             <Route path="/channels" element={<Channels />} />
             <Route path="/catalogue" element={<Catalogue />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>
       </BrowserRouter>

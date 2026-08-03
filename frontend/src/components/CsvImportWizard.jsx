@@ -7,10 +7,10 @@ import { toast } from "sonner";
 const STEPS = ["Upload", "Map & Validate", "Preview", "Commit"];
 
 const REQUIRED = ["sku", "title", "brand", "category", "mrp", "cost", "stock"];
-const OPTIONAL = ["weight_kg", "image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"];
+const OPTIONAL_BASE = ["weight_kg", "image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"];
 
 export default function CsvImportWizard({ onClose }) {
-  const { addProducts, listProductOnChannels } = useStore();
+  const { addProducts, listProductOnChannels, attributes } = useStore();
   const [step, setStep] = useState(0);
   const [csvText, setCsvText] = useState("");
   const [rows, setRows] = useState([]);
@@ -42,7 +42,8 @@ export default function CsvImportWizard({ onClose }) {
       setHeaders(h);
       setRows(r);
       const autoMap = {};
-      [...REQUIRED, ...OPTIONAL].forEach(req => {
+      const allOptional = [...OPTIONAL_BASE, ...attributes.map(a => a.key)];
+      [...REQUIRED, ...allOptional].forEach(req => {
         const found = h.find(hh => hh.toLowerCase() === req.toLowerCase());
         if (found) autoMap[req] = found;
       });
@@ -189,16 +190,11 @@ export default function CsvImportWizard({ onClose }) {
               </div>
               <div className="border border-[var(--border)] mt-3">
                 <div className="px-4 py-2 bg-[var(--surface)] border-b border-[var(--border)] text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Optional · Images & Weight</div>
-                {OPTIONAL.map(req => (
+                {OPTIONAL_BASE.map(req => (
                   <div key={req} className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--border)] last:border-b-0">
                     <div className="w-40 text-[12px] font-medium">{req}</div>
                     <div className="text-[var(--fg-muted)]">→</div>
-                    <select
-                      data-testid={`map-${req}`}
-                      value={mapping[req] || ""}
-                      onChange={e => setMapping(m => ({ ...m, [req]: e.target.value }))}
-                      className="flex-1 border border-[var(--border)] px-2 py-1 text-[13px] outline-none"
-                    >
+                    <select data-testid={`map-${req}`} value={mapping[req] || ""} onChange={e => setMapping(m => ({ ...m, [req]: e.target.value }))} className="flex-1 border border-[var(--border)] px-2 py-1 text-[13px] outline-none">
                       <option value="">— Not mapped —</option>
                       {headers.map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
@@ -206,6 +202,25 @@ export default function CsvImportWizard({ onClose }) {
                   </div>
                 ))}
               </div>
+              {attributes.length > 0 && (
+                <div className="border border-[var(--border)] mt-3">
+                  <div className="px-4 py-2 bg-[var(--surface)] border-b border-[var(--border)] text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold flex items-center justify-between">
+                    <span>Channel Attributes · from Settings › Attribute Management</span>
+                    <span className="tabular text-[10px]">{attributes.length} available</span>
+                  </div>
+                  {attributes.map(a => (
+                    <div key={a.id} className="flex items-center gap-4 px-4 py-2 border-b border-[var(--border)] last:border-b-0">
+                      <div className="w-40 text-[12px] font-medium flex items-center gap-1.5">{a.label} {a.required && <span className="text-[var(--danger)]">*</span>}</div>
+                      <div className="text-[var(--fg-muted)]">→</div>
+                      <select data-testid={`map-${a.key}`} value={mapping[a.key] || ""} onChange={e => setMapping(m => ({ ...m, [a.key]: e.target.value }))} className="flex-1 border border-[var(--border)] px-2 py-1 text-[12px] outline-none">
+                        <option value="">— Not mapped —</option>
+                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      {mapping[a.key] && <Check size={13} className="text-[var(--success)]" />}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-4 p-3 border border-[var(--border)] bg-[var(--surface)] text-[12px] flex items-center gap-2">
                 <AlertCircle size={13} className="text-[var(--warning)]" />
                 Detected {rows.length} rows · {validCount} valid · <span className="text-[var(--danger)]">{errorCount} with errors</span>

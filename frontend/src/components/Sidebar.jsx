@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, BarChart3, ShoppingCart, Package, Radio, Undo2, Plug, BookOpen, Boxes, Search, Command } from "lucide-react";
+import { LayoutDashboard, BarChart3, ShoppingCart, Package, Radio, Undo2, Plug, BookOpen, Boxes, Search, Command, Settings } from "lucide-react";
 
 const NAV = [
   {
@@ -24,6 +24,7 @@ const NAV = [
     items: [
       { to: "/channels", label: "Channels", icon: Plug, testid: "nav-channels" },
       { to: "/catalogue", label: "Catalogue", icon: BookOpen, testid: "nav-catalogue" },
+      { to: "/settings", label: "Attribute Management", icon: Settings, testid: "nav-settings" },
     ],
   },
 ];

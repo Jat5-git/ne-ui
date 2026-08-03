@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend-only testing of the new central Attribute Management feature (Settings page) and its integration into the New Product modal (2-step, channel-first) and CSV Import Wizard. Verified end-to-end store synchronization: attribute created in /settings appears immediately in New Product modal (filtered by chosen channels) and CSV wizard mapping; attribute added inline from the modal persists back to /settings. All 12 seeded attributes present, system attributes show sparkle icon and disabled delete, non-system delete works, edit loads existing values, channel visibility filter respects global vs channel-specific. All input types render correctly (text/textarea/number/select/multiselect/checkbox). Required-Filled counter and channel header populated. Regression navigation to Dashboard, Analytics, Orders, Listings, Returns, Channels, Catalogue works with no console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings > Attribute Editor panel", "issues": ["Draft channel visibility warning ('Global overrides individual channel picks') is only informational — the code still saves all selected channels, so if user picks Global + Amazon, the attribute effectively becomes global. Consider auto-clearing others when 'Global' is toggled on for less confusion."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "StoreContext.jsx addAttribute uses Date.now() for id — if two attributes are added within the same millisecond (e.g., in a script/programmatic loop) IDs will collide. Low risk for humans but worth using a monotonic counter or uuid.",
+    "NewProductModal.createInlineAttr auto-assigns channels = selectedChannels || ['global']. If the user is on step 2 with 'Save to Master only' (no channels) selected, the inline attribute becomes global, which is correct — but if only Amazon is selected, the new attribute becomes Amazon-only and will disappear if the user goes back to step 1 and deselects Amazon. Consider defaulting inline additions to 'global' regardless of channel context, or exposing a channel picker.",
+    "CsvImportWizard.jsx: The Channel Attributes section maps every attribute regardless of whether the user's channels will actually be used post-import. If postAction='master_only', channel-specific attribute values are collected but never applied to listings — mapping still happens which is confusing. Consider hiding channel-specific attrs unless user picks post-action first, or scoping to global only.",
+    "Settings.jsx save(): mutates draft.key directly (draft.key = ...) instead of using setDraft — the auto-generated key is written to state via mutation which bypasses React's update cycle; works here because addAttribute reads the mutated draft immediately, but is a code smell.",
+    "attributes list is initialized inline inside StoreProvider's useState — 40+ lines of seed data would be better extracted to seed.js alongside the other constants for consistency."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "none required",
+  "seed_data_creation": "In-session only: added 'Battery Wh' (amazon-only, required) and 'Fabric GSM' (via modal inline form). Battery Wh deleted at end of test. All state resets on page reload.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "IMPORTANT: attributes state lives in React Context (StoreProvider) inside App.js and PERSISTS across SPA navigation (click nav-* links) but RESETS on page.goto() / hard refresh. Use SPA nav clicks in playwright to validate cross-page state propagation. Verified end-to-end: Settings CRUD → New Product step-2 filtering (attributesForChannels helper) → CSV wizard mapping (28 total map dropdowns = 7 required + 7 optional + 14 attributes when 2 custom added on top of 12 seeded). All 4 CRUD ops on attributes work, all 6 attr input types render, all navigation regressions pass.",
+  "rca of the issue": "N/A - no bugs found"
+}

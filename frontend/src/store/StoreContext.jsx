@@ -22,6 +22,20 @@ export const StoreProvider = ({ children }) => {
   const [brands] = useState(BRANDS);
   const [auditLog, setAuditLog] = useState(AUDIT_LOG);
   const [variants, setVariants] = useState(VARIANTS);
+  const [attributes, setAttributes] = useState(() => [
+    { id: "attr_gtin",    key: "gtin",         label: "GTIN (UPC/EAN)",     type: "text",     options: [],                                              channels: ["amazon","flipkart"], required: true,  hint: "12-13 digit barcode", system: true },
+    { id: "attr_hsn",     key: "hsn_code",     label: "HSN Code",           type: "text",     options: [],                                              channels: ["global"],           required: true,  hint: "8-digit HSN for India", system: true },
+    { id: "attr_gst",     key: "gst_rate",     label: "GST Rate (%)",       type: "select",   options: ["0","5","12","18","28"],                        channels: ["global"],           required: true,  system: true },
+    { id: "attr_bul1",    key: "bullet_1",     label: "Amazon Bullet 1",    type: "text",     options: [],                                              channels: ["amazon"],           required: true,  hint: "Max 500 chars", system: true },
+    { id: "attr_desc",    key: "description",  label: "Long Description",   type: "textarea", options: [],                                              channels: ["global"],           required: true,  hint: "Max 2000 chars", system: true },
+    { id: "attr_model",   key: "model_number", label: "Model Number",       type: "text",     options: [],                                              channels: ["flipkart","amazon"],required: true,  system: true },
+    { id: "attr_vendor",  key: "vendor",       label: "Shopify Vendor",     type: "text",     options: [],                                              channels: ["shopify"],          required: true,  system: true },
+    { id: "attr_regprc",  key: "regular_price",label: "Woo Regular Price",  type: "number",   options: [],                                              channels: ["woocommerce"],      required: true,  system: true },
+    { id: "attr_coo",     key: "country_of_origin", label: "Country of Origin", type: "select", options: ["India","China","Vietnam","USA","Germany"], channels: ["global"],           required: true,  system: true },
+    { id: "attr_gender",  key: "gender",       label: "Gender",             type: "select",   options: ["Men","Women","Unisex","Boys","Girls"],         channels: ["global"],           required: false, system: false },
+    { id: "attr_material",key: "material",     label: "Material",           type: "text",     options: [],                                              channels: ["global"],           required: false, system: false },
+    { id: "attr_warr",    key: "warranty_months", label: "Warranty (months)", type: "number", options: [],                                              channels: ["global"],           required: false, system: false },
+  ]);
 
   const logEvent = (event, detail, level = "info", actor = "Ananya (Admin)") => {
     setAuditLog(prev => [{ ts: nowStamp(), actor, event, detail, level }, ...prev]);
@@ -250,11 +264,18 @@ export const StoreProvider = ({ children }) => {
 
   return (
     <StoreContext.Provider value={{
-      products, listings, orders, returns, channels, categories, schemas, brands, auditLog, variants,
+      products, listings, orders, returns, channels, categories, schemas, brands, auditLog, variants, attributes,
       addProducts, listProductOnChannels, updateListing, toggleChannel,
       getVariants, updateVariant, deleteVariant, addOptionValue, addAxis, totalStock,
       effectiveStock, productListings, productStockView,
       setStockMode, updateCentralStock, updateChannelAllocation, autoBalance, setMasterPool,
+      addAttribute: (attr) => setAttributes(prev => [{ ...attr, id: `attr_${Date.now()}` }, ...prev]),
+      updateAttribute: (id, patch) => setAttributes(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a)),
+      deleteAttribute: (id) => setAttributes(prev => prev.filter(a => a.id !== id)),
+      attributesForChannels: (chKeys) => {
+        const set = new Set(chKeys);
+        return attributes.filter(a => a.channels.includes("global") || a.channels.some(c => set.has(c)));
+      },
     }}>
       {children}
     </StoreContext.Provider>
