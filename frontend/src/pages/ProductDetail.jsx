@@ -69,6 +69,13 @@ export default function ProductDetail() {
   const filteredRows = useMemo(() => chFilter === "all" ? productListings : productListings.filter(r => r.channel === chFilter), [productListings, chFilter]);
   const days = parseInt(dateRange, 10);
   const trend = useMemo(() => buildTrend(filteredRows, days), [filteredRows, days]);
+  // Deterministic conversion-rate per product (2.0–5.5%), stable across renders and filters
+  const convRate = useMemo(() => {
+    const seed = (product?.id || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    return (2 + (seed % 35) / 10).toFixed(1);
+  }, [product]);
+  // Scale window: derived numbers change with date range
+  const windowFactor = days / 30;
 
   if (!product) {
     return (
@@ -79,8 +86,8 @@ export default function ProductDetail() {
     );
   }
 
-  const totalUnits = filteredRows.reduce((s, r) => s + r.units_sold_30d, 0);
-  const totalRev = filteredRows.reduce((s, r) => s + r.revenue_30d, 0);
+  const totalUnits = Math.round(filteredRows.reduce((s, r) => s + r.units_sold_30d, 0) * windowFactor);
+  const totalRev = Math.round(filteredRows.reduce((s, r) => s + r.revenue_30d, 0) * windowFactor);
   const aov = totalUnits > 0 ? Math.round(totalRev / totalUnits) : 0;
   const totalStock = filteredRows.reduce((s, r) => s + effectiveStock(r), 0);
   const activeCount = filteredRows.filter(r => r.status === "active").length;
@@ -517,14 +524,16 @@ export default function ProductDetail() {
                 </thead>
                 <tbody>
                   {filteredRows.map(r => {
-                    const share = totalRev > 0 ? (r.revenue_30d / totalRev) * 100 : 0;
-                    const rAov = r.units_sold_30d > 0 ? Math.round(r.revenue_30d / r.units_sold_30d) : 0;
+                    const rUnits = Math.round(r.units_sold_30d * windowFactor);
+                    const rRev = Math.round(r.revenue_30d * windowFactor);
+                    const share = totalRev > 0 ? (rRev / totalRev) * 100 : 0;
+                    const rAov = rUnits > 0 ? Math.round(rRev / rUnits) : 0;
                     return (
                       <tr key={r.id} className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--surface)]">
                         <td className="p-3"><ChannelChip channel={r.channel} /></td>
                         <td className="p-3"><StatusPill status={r.status} /></td>
-                        <td className="p-3 text-right tabular">{r.units_sold_30d}</td>
-                        <td className="p-3 text-right tabular font-medium">{fmt(r.revenue_30d)}</td>
+                        <td className="p-3 text-right tabular">{rUnits}</td>
+                        <td className="p-3 text-right tabular font-medium">{fmt(rRev)}</td>
                         <td className="p-3 text-right tabular text-[var(--fg-muted)]">{fmt(rAov)}</td>
                         <td className="p-3 text-right">
                           <div className="inline-flex items-center gap-2 justify-end">
