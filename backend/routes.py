@@ -190,7 +190,8 @@ async def create_order(o: Order):
     doc = o.model_dump(); await db.orders.insert_one(dict(doc)); return doc
 @router.put("/orders/{id}/status")
 async def order_status(id: str, body: Dict[str, str]):
-    new = body.get("status"); assert new
+    new = body.get("status")
+    if not new: raise HTTPException(400, "status is required")
     order = await _get("orders", id)
     prev = order["status"]
     valid = {"placed": {"processing", "cancelled"}, "processing": {"shipped", "cancelled"}, "shipped": {"delivered", "cancelled"}, "delivered": {"returned"}, "cancelled": set(), "returned": set()}

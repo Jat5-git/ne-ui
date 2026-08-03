@@ -172,7 +172,7 @@ export default function Dashboard() {
       <Topbar
         title="Command Center"
         breadcrumb="Overview"
-        subtitle="Click any card to drill into the filtered view. Add up to 4 custom dashlets."
+        subtitle="Click any card to drill into the filtered view. Add up to 8 custom dashlets."
         actions={
           <>
             <Link to="/products" data-testid="dash-cta-import" className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] transition-colors">Import Products</Link>

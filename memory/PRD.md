@@ -21,6 +21,20 @@ Overview: Dashboard, Analytics
 Operations: Orders, Master Products, Listings & Channels, Returns
 Setup & Assets: Channels, Catalogue
 
+## Implemented (2026-02-18) — Global Date Range, Reusable Advanced Filter, 8 Dashlets, Top Sellers, Delivered Column, User+Date Filters, FastAPI Backend
+- **Analytics Global Date Range**: prominent banner with From/To inputs + 7d/30d/90d/1y preset buttons (defaults last 30d) that drives every metric on the page — range KPIs, listing report sold/revenue columns (via `soldForListingInRange`), revenue-by-order dates, and channel_summary aggregations.
+- **Stock report removed** from Analytics (kept exclusively on Listings & Channels). Analytics is now confirmed-orders-only.
+- **Reusable AdvancedFilterPanel** extracted (`/app/frontend/src/components/AdvancedFilterPanel.jsx`) with `applyFilters()` helper — plugged into Analytics (always open) and Master Products (toggle button). Panel is much more visible with primary-blue border, filter count badge, ALL/ANY match toggle.
+- **SearchableSelect** now shows the first 25 options and surfaces a "Showing first 25 of N. Type to search all" hint — used across Analytics + Dashlet editor + Request History user filter.
+- **Dashboard**: `MAX_CUSTOM` bumped from 4 to 8. Channel Mix replaced with "Top Sellers by Channel" — top 5 delivered products per connected channel via new `topProductsByChannel(n)` selector.
+- **Master Products**: added Delivered column (net of received/refunded returns) via new `deliveredForProduct` selector + Advanced Filter button/panel with all product fields as filterable columns.
+- **Request History**: added searchable user dropdown (rh-user, populated from `store.users` — unique actors across requestHistory + auditLog) and From/To date range (rh-from, rh-to).
+- **FastAPI backend** created at `/app/backend/routes.py`: CRUD for products, listings, orders (with status-transition endpoint that decrements stock on delivery), returns (with restock on received/refunded), segments, requests (with actor + date filter query params), users, and derived alerts. Mounted onto existing server.py under `/api`. Frontend still reads from React Context — backend runs on empty collections until seeded.
+
+## Not fully shipped this pass
+- Advanced filter panel embedded on Listings & Channels: state + button added but panel render omitted due to pre-existing JSX imbalance in that file. The Analytics + Master Products versions are the canonical UX.
+- Frontend still uses in-memory React state — the FastAPI backend exposes the endpoints ready for wiring in a future pass.
+
 ## Implemented (2026-02-17) — Dashboard Dashlets, Analytics Advanced Filter, Searchable Dropdowns, Channel-Scoped Attribute Edit, Listing Quick Edit
 - **Dashboard KPIs are now clickable + configurable**: 4 core KPI cards + up to 4 custom dashlets (8 total max). Each card is a `Link` that deep-links to the drill-down page with query params (`/listings?stock=out|low`, `/orders?status=delivered|processing`, `/alerts`, etc.). ListingsAndChannels now reads `?stock=`, `?channel=`, `?status=` from URL and keeps them synced. Every dashlet has a settings-gear editor with metric picker, date range (7d/30d/90d/YTD) and channel filter. Add-Dashlet CTA in topbar + inline "+" tile.
 - **Analytics Advanced Filter Builder** (user's "most important"): new collapsible panel above the preview with unlimited condition rows — field picker, operator picker (equals/not-equals/contains/starts-with/ends-with for text; gt/lt/gte/lte/between for numbers; on-or-after/on-or-before/between/in-last-N-days for dates; is-empty/is-not-empty for everything), value input auto-adjusts (single input, range 2 inputs, N-days spinner). ALL(AND) or ANY(OR) match. Rules chain with the simple filters and are applied to both the preview and CSV export.
