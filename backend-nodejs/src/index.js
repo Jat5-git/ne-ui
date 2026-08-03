@@ -14,6 +14,7 @@ import * as productRoutes from "./routes/products.js";
 import * as variantRoutes from "./routes/variants.js";
 import * as listingRoutes from "./routes/listings.js";
 import * as uploadRoutes from "./routes/uploads.js";
+import * as attributeRoutes from "./routes/attributes.js";
 import { csvUpload, importCsv } from "./routes/imports.js";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
@@ -57,6 +58,13 @@ app.patch("/api/listings/:id", listingRoutes.updateListing);
 // Uploads (presigned S3 flow)
 app.post("/api/uploads/presign", uploadRoutes.presignUpload);
 app.post("/api/uploads/attach", uploadRoutes.attachImages);
+
+// Central Attribute Library — Settings › Attribute Management
+app.get("/api/attributes", attributeRoutes.listAttributes);
+app.post("/api/attributes", attributeRoutes.createAttribute);
+app.patch("/api/attributes/:id", attributeRoutes.updateAttribute);
+app.delete("/api/attributes/:id", attributeRoutes.deleteAttribute);
+app.post("/api/attributes/validate", attributeRoutes.validateAttributes);
 
 // CSV import (multipart)
 app.post("/api/imports/csv", csvUpload, importCsv);

@@ -8,14 +8,15 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 export const csvUpload = upload.single("file");
 
 const REQUIRED = ["sku", "title", "brand", "category", "mrp", "cost", "stock"];
-const OPTIONAL = ["weight_kg", "image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"];
+const OPTIONAL_FIXED = ["weight_kg", "image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"];
 
 /**
  * POST /api/imports/csv  (multipart, field name "file")
  * Body form fields:
- *   mapping: JSON string mapping our field names to CSV columns
+ *   mapping: JSON string mapping our field names (including attribute keys) to CSV columns
  *   direct_list_channel_ids: comma-separated channel IDs to publish to after import
- * Returns: { created, errors, ... }
+ * The mapping now supports every attribute defined in attribute_definitions, so users can
+ * bring GTIN/HSN/Model Number etc. directly in via CSV.
  */
 export async function importCsv(req, res) {
   if (!req.file) throw badRequest("no_file", "CSV file required");
@@ -33,12 +34,29 @@ export async function importCsv(req, res) {
   });
 
   const result = await withTenant(req.tenantId, async (c) => {
+    // Load the tenant's attribute definitions so any mapping[<attr_key>] pulls into channel_attributes.
+    const { rows: defs } = await c.query("SELECT key, type FROM attribute_definitions");
+    const attrKeys = new Set(defs.map(d => d.key));
+    const attrTypes = Object.fromEntries(defs.map(d => [d.key, d.type]));
+
     const created = [];
     for (const row of validRows) {
-      const images = OPTIONAL
+      const images = OPTIONAL_FIXED
         .filter(k => k.startsWith("image_url_"))
         .map(k => mapping[k] ? row[mapping[k]] : "")
         .filter(u => u && u.trim());
+
+      // Extract channel_attributes from the CSV using the mapping.
+      const channel_attrs = {};
+      for (const k of Object.keys(mapping)) {
+        if (!attrKeys.has(k)) continue;
+        const raw = row[mapping[k]];
+        if (raw === undefined || raw === "") continue;
+        if (attrTypes[k] === "number") channel_attrs[k] = parseFloat(raw) || 0;
+        else if (attrTypes[k] === "checkbox") channel_attrs[k] = ["true","1","yes","y"].includes(String(raw).toLowerCase());
+        else if (attrTypes[k] === "multiselect") channel_attrs[k] = raw.split("|").map(s => s.trim()).filter(Boolean);
+        else channel_attrs[k] = raw;
+      }
 
       // Look up brand / category by name (create if missing — dev convenience)
       const brandName = row[mapping.brand];
@@ -58,15 +76,17 @@ export async function importCsv(req, res) {
 
       const { rows: inserted } = await c.query(
         `INSERT INTO products (id, tenant_id, sku, title, brand_id, category_id, mrp, cost, stock,
-                               weight_kg, stock_mode, images, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'central',$11::jsonb,'draft')
+                               weight_kg, stock_mode, images, channel_attributes, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'central',$11::jsonb,$12::jsonb,'draft')
          ON CONFLICT (tenant_id, sku) DO UPDATE
            SET title = EXCLUDED.title, mrp = EXCLUDED.mrp, cost = EXCLUDED.cost,
-               stock = EXCLUDED.stock, images = EXCLUDED.images, updated_at = now()
+               stock = EXCLUDED.stock, images = EXCLUDED.images,
+               channel_attributes = products.channel_attributes || EXCLUDED.channel_attributes,
+               updated_at = now()
          RETURNING id`,
         [id, req.tenantId, row[mapping.sku], row[mapping.title], brand_id, category_id,
          parseFloat(row[mapping.mrp]) || 0, parseFloat(row[mapping.cost]) || 0,
-         parseInt(row[mapping.stock]) || 0, weight, JSON.stringify(images)]);
+         parseInt(row[mapping.stock]) || 0, weight, JSON.stringify(images), JSON.stringify(channel_attrs)]);
       created.push(inserted[0].id);
 
       // Optionally publish to selected channels immediately

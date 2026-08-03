@@ -83,7 +83,8 @@ CREATE TABLE products (
   status        TEXT NOT NULL DEFAULT 'draft',        -- draft | listed | unlisted
   stock_mode    TEXT NOT NULL DEFAULT 'central',      -- central | allocated
   option_axes   JSONB NOT NULL DEFAULT '[]'::jsonb,   -- [{name, values:[]}]
-  attributes    JSONB NOT NULL DEFAULT '{}'::jsonb,   -- schema-driven attribute values
+  attributes    JSONB NOT NULL DEFAULT '{}'::jsonb,   -- legacy per-product free-form attributes
+  channel_attributes JSONB NOT NULL DEFAULT '{}'::jsonb, -- values keyed by attribute_definitions.key
   images        JSONB NOT NULL DEFAULT '[]'::jsonb,   -- string[] URLs, primary is [0]
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -230,6 +231,33 @@ CREATE TABLE sync_jobs (
 CREATE INDEX idx_sync_jobs_status ON sync_jobs(status, scheduled_at);
 CREATE INDEX idx_sync_jobs_tenant ON sync_jobs(tenant_id);
 
+-- ============ CENTRAL ATTRIBUTE LIBRARY ============
+-- Global schema definitions. Every product's channel_attributes JSON is keyed
+-- against these entries. New attributes here become immediately available in
+-- the product form and CSV import.
+CREATE TABLE attribute_definitions (
+  id            TEXT PRIMARY KEY,
+  tenant_id     TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  key           TEXT NOT NULL,                        -- machine key: gtin, model_number, hsn_code
+  label         TEXT NOT NULL,                        -- human label
+  type          TEXT NOT NULL,                        -- text|textarea|number|select|multiselect|checkbox
+  options       JSONB NOT NULL DEFAULT '[]'::jsonb,   -- for select/multiselect
+  channels      TEXT[] NOT NULL DEFAULT '{global}',   -- global | amazon | flipkart | shopify | woocommerce
+  required      BOOLEAN NOT NULL DEFAULT false,
+  hint          TEXT,
+  category_ids  TEXT[] DEFAULT '{}',                  -- empty = applies to all categories
+  system        BOOLEAN NOT NULL DEFAULT false,       -- system attrs cannot be deleted
+  sort_order    INTEGER NOT NULL DEFAULT 100,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, key)
+);
+CREATE INDEX idx_attrdef_tenant ON attribute_definitions(tenant_id);
+CREATE INDEX idx_attrdef_channels ON attribute_definitions USING gin (channels);
+
+-- Seed the 12 system attributes for a new tenant (call this from the signup service).
+-- INSERT INTO attribute_definitions ... (see /src/db/seedAttributes.js)
+
 -- ============ ROW-LEVEL SECURITY (defence in depth) ============
 -- Enable RLS on every tenant-scoped table so a bug in application code
 -- can never leak another tenant's data.
@@ -237,7 +265,7 @@ DO $$
 DECLARE t TEXT;
 BEGIN
   FOR t IN SELECT unnest(ARRAY[
-    'users','brands','categories','attribute_schemas','products','variants',
+    'users','brands','categories','attribute_schemas','attribute_definitions','products','variants',
     'channels','listings','orders','order_items','returns','audit_log','sync_jobs'
   ]) LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);

@@ -126,6 +126,28 @@ Both must include `?sslmode=require`.
 
 Response includes `{ token, user, tenant }`. Include token as `Authorization: Bearer <token>` on every subsequent request.
 
+### Central Attribute Library
+The single source of truth for what fields a product can carry across channels.
+System attributes are seeded automatically on tenant signup (12 defaults from `src/db/seedAttributes.js`). Users can add unlimited custom ones from **Settings › Attribute Management** in the UI.
+
+| Method | Path | Body / Query | Notes |
+| ------ | ---- | ------------ | ----- |
+| GET    | `/api/attributes?channels=amazon,flipkart` | — | Optional channel filter; Global attrs always included |
+| POST   | `/api/attributes` | `{ label, type, options[], channels[], required, hint }` | `key` auto-generated if omitted; 'global' is exclusive |
+| PATCH  | `/api/attributes/:id` | Partial update | System attribute keys are locked |
+| DELETE | `/api/attributes/:id` | — | System attributes are protected (400) |
+| POST   | `/api/attributes/validate` | `{ product_id, channels: [] }` | Returns `{ ok, missing[] }` — call before publishing |
+
+`type` supports: `text`, `textarea`, `number`, `select`, `multiselect`, `checkbox`.
+`channels[]` values: `global`, `amazon`, `flipkart`, `shopify`, `woocommerce`.
+
+### Products & Attributes
+Products now carry two JSON columns:
+- `attributes`     — legacy free-form key/value (kept for backwards compatibility)
+- `channel_attributes` — values keyed by `attribute_definitions.key`
+
+When the CSV import wizard maps a column to an attribute key (e.g., `gtin → hero_image_url`), the value lands in `products.channel_attributes` and is type-coerced according to the attribute's `type` (number/checkbox/multiselect).
+
 ### Products
 | Method | Path | Notes |
 | ------ | ---- | ----- |

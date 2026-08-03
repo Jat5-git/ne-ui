@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { ulid } from "ulid";
-import { sql } from "../db/client.js";
+import { sql, pool } from "../db/client.js";
 import { signToken } from "../middleware/auth.js";
 import { badRequest, conflict } from "../middleware/error.js";
+import { seedAttributesForTenant } from "../db/seedAttributes.js";
 
 // ---- signup: creates tenant + owner user together ----
 const signupSchema = z.object({
@@ -23,12 +24,25 @@ export async function signup(req, res) {
   const userId = `u_${ulid()}`;
   const hash = await bcrypt.hash(b.password, 12);
 
-  // Neon HTTP driver auto-transactions this batch
-  await sql.transaction([
-    sql`INSERT INTO tenants (id, name, slug) VALUES (${tenantId}, ${b.workspace_name}, ${b.slug})`,
-    sql`INSERT INTO users (id, tenant_id, email, password_hash, name, role)
-        VALUES (${userId}, ${tenantId}, ${b.email}, ${hash}, ${b.name}, 'owner')`,
-  ]);
+  // Use the pooled TCP client so we can seed the 12 system attributes inside the same tx.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("INSERT INTO tenants (id, name, slug) VALUES ($1,$2,$3)", [tenantId, b.workspace_name, b.slug]);
+    await client.query(
+      `INSERT INTO users (id, tenant_id, email, password_hash, name, role)
+       VALUES ($1,$2,$3,$4,$5,'owner')`,
+      [userId, tenantId, b.email, hash, b.name]);
+    // Seed the 12 system attributes so the new workspace is immediately usable.
+    await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+    await seedAttributesForTenant(client, tenantId);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 
   const token = signToken({ user_id: userId, tenant_id: tenantId, role: "owner" });
   res.status(201).json({ token, user: { id: userId, email: b.email, name: b.name, role: "owner" },

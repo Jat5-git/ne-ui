@@ -16,6 +16,8 @@ const productCreateSchema = z.object({
   option_axes: z.array(z.object({ name: z.string(), values: z.array(z.string()) })).default([]),
   images: z.array(z.string().url()).max(6).default([]),
   attributes: z.record(z.any()).default({}),
+  channel_attributes: z.record(z.any()).default({}),
+  publish_channel_ids: z.array(z.string()).default([]),
 });
 
 // ---- list with filters, pagination, search ----
@@ -71,18 +73,40 @@ export async function createProduct(req, res) {
   const created = await withTenant(req.tenantId, async (c) => {
     const { rows } = await c.query(
       `INSERT INTO products (id, tenant_id, sku, title, brand_id, category_id, mrp, cost, stock,
-                             weight_kg, stock_mode, option_axes, images, attributes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14::jsonb)
+                             weight_kg, stock_mode, option_axes, images, attributes, channel_attributes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb)
        RETURNING *`,
       [id, req.tenantId, body.sku, body.title, body.brand_id, body.category_id, body.mrp, body.cost,
        body.stock, body.weight_kg, body.stock_mode, JSON.stringify(body.option_axes),
-       JSON.stringify(body.images), JSON.stringify(body.attributes)],
+       JSON.stringify(body.images), JSON.stringify(body.attributes), JSON.stringify(body.channel_attributes)],
     );
     await c.query(
       `INSERT INTO audit_log (tenant_id, user_id, entity_type, entity_id, event, detail, level)
        VALUES ($1,$2,'product',$3,'Product created',$4,'success')`,
       [req.tenantId, req.user.id, id, `${body.sku} · ${body.title}`],
     );
+
+    // Optionally publish immediately to channels
+    if (body.publish_channel_ids.length > 0) {
+      const priceMul = { amazon: 1.05, shopify: 1.10, flipkart: 1.02, woocommerce: 1.08 };
+      for (const chId of body.publish_channel_ids) {
+        const { rows: chRows } = await c.query("SELECT key, name FROM channels WHERE id = $1", [chId]);
+        if (chRows.length === 0) continue;
+        const ch = chRows[0];
+        const mul = priceMul[ch.key] || 1.0;
+        const chSku = `${ch.key.slice(0,3).toUpperCase()}-${body.sku}`;
+        await c.query(
+          `INSERT INTO listings (id, tenant_id, product_id, channel_id, channel_sku, status, stock, price)
+           VALUES ($1,$2,$3,$4,$5,'active',0,$6)
+           ON CONFLICT (tenant_id, channel_id, channel_sku) DO NOTHING`,
+          [`lst_${ulid()}`, req.tenantId, id, chId, chSku, Math.round(body.mrp * mul)]);
+        await c.query(
+          `INSERT INTO sync_jobs (id, tenant_id, channel_id, kind, payload)
+           VALUES ($1,$2,$3,'publish',$4::jsonb)`,
+          [`job_${ulid()}`, req.tenantId, chId, JSON.stringify({ product_id: id })]);
+      }
+      await c.query("UPDATE products SET status = 'listed' WHERE id = $1", [id]);
+    }
     return rows[0];
   });
   res.status(201).json(created);
@@ -94,7 +118,7 @@ export async function updateProduct(req, res) {
   const keys = Object.keys(body);
   if (keys.length === 0) throw badRequest("empty_update", "no fields to update");
 
-  const jsonFields = new Set(["option_axes", "images", "attributes"]);
+  const jsonFields = new Set(["option_axes", "images", "attributes", "channel_attributes"]);
   const sets = keys.map((k, i) => `${k} = $${i + 1}${jsonFields.has(k) ? "::jsonb" : ""}`);
   const values = keys.map(k => jsonFields.has(k) ? JSON.stringify(body[k]) : body[k]);
   values.push(id);
