@@ -21,6 +21,14 @@ Overview: Dashboard, Analytics
 Operations: Orders, Master Products, Listings & Channels, Returns
 Setup & Assets: Channels, Catalogue
 
+## Implemented (2026-02-15) — Revenue Attribution + Stock Management + Report Builder
+- **Order-driven stock blocking**: Orders now carry `line_items[]` with master_id + qty + unit_price. Orders in placed/processing/shipped status *block* stock (visible as new "Blocked" column on Master Products & Listings/Channels). Available = Stock − Blocked. Delivered orders physically consume stock; cancelled orders release the block; returned orders restock.
+- **Revenue lifecycle**: `revenueSummary` computes Pending (open orders), Confirmed (delivered orders), Refunded (from refunded returns), Net (Confirmed − Refunded). Dashboard + Analytics both show colour-coded KPI grid.
+- **Order actions**: Orders page has status-advance buttons (Move to Processing → Mark Shipped → Mark Delivered), Cancel, and Return-flow modal with per-line-item selection + refund calculation + reason picker. Expandable row shows line items and current stock/revenue effect.
+- **Returns actions**: Returns page has Confirm Pickup → Mark Received (auto-restocks) → Issue Refund (auto-deducts from revenue) flow, plus Reject. KPI cards for Total / In Progress / Refunded. Expandable rows show per-line stock + revenue impact.
+- **Listings & Channels stock filter**: New `lf-stock` dropdown filters listings by All / In stock / Low (≤10) / Out of stock, plus Blocked & Available columns in both grouped and flat views.
+- **Analytics Report Builder**: Four report types (Listings by Channel, Revenue by Order, Stock by Product, Channel Summary), multi-select channel chips, status/brand/category/stock-range/date filters, column picker, live preview (first 40 rows), and CSV export downloading only visible columns + all filtered rows.
+
 ## Implemented (2026-02-03)
 - Global sidebar layout + top bar with breadcrumbs
 - Dashboard: 4 KPI cards, revenue trend LineChart, channel-mix BarChart, real-time audit log, per-channel summary
