@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
-import { Search, ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, AlertTriangle, ChevronRight, LayoutGrid, Rows3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -13,6 +13,8 @@ export default function ListingsAndChannels() {
   const [query, setQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [view, setView] = useState("grouped"); // grouped | flat
+  const [expanded, setExpanded] = useState(new Set());
 
   const filtered = useMemo(() => listings.filter(l => {
     if (channelFilter !== "all" && l.channel !== channelFilter) return false;
@@ -20,6 +22,49 @@ export default function ListingsAndChannels() {
     if (query && !l.title.toLowerCase().includes(query.toLowerCase()) && !l.master_sku.toLowerCase().includes(query.toLowerCase())) return false;
     return true;
   }), [listings, query, channelFilter, statusFilter]);
+
+  // Group by master_sku — one row per unique product
+  const grouped = useMemo(() => {
+    const map = new Map();
+    filtered.forEach(l => {
+      const key = l.master_sku;
+      if (!map.has(key)) {
+        map.set(key, {
+          master_sku: l.master_sku,
+          master_id: l.master_id,
+          title: l.title,
+          image: l.image,
+          rows: [],
+        });
+      }
+      map.get(key).rows.push(l);
+    });
+    return Array.from(map.values()).map(g => {
+      const totalStock = g.rows.reduce((s, r) => s + r.stock, 0);
+      const totalRev = g.rows.reduce((s, r) => s + r.revenue_30d, 0);
+      const totalUnits = g.rows.reduce((s, r) => s + r.units_sold_30d, 0);
+      const errorCount = g.rows.filter(r => r.status === "error").length;
+      const activeCount = g.rows.filter(r => r.status === "active").length;
+      const pausedCount = g.rows.filter(r => r.status === "paused").length;
+      const oosCount = g.rows.filter(r => r.stock === 0).length;
+      const avgPrice = g.rows.length ? Math.round(g.rows.reduce((s, r) => s + r.price, 0) / g.rows.length) : 0;
+      const priceMin = Math.min(...g.rows.map(r => r.price));
+      const priceMax = Math.max(...g.rows.map(r => r.price));
+      const lastSync = g.rows.map(r => r.last_synced).sort().reverse()[0];
+      return { ...g, totalStock, totalRev, totalUnits, errorCount, activeCount, pausedCount, oosCount, avgPrice, priceMin, priceMax, lastSync };
+    });
+  }, [filtered]);
+
+  const toggleExpand = (sku) => {
+    setExpanded(prev => {
+      const n = new Set(prev);
+      n.has(sku) ? n.delete(sku) : n.add(sku);
+      return n;
+    });
+  };
+
+  const expandAll = () => setExpanded(new Set(grouped.map(g => g.master_sku)));
+  const collapseAll = () => setExpanded(new Set());
 
   const activeCount = listings.filter(l => l.status === "active").length;
   const errCount = listings.filter(l => l.status === "error").length;
@@ -35,7 +80,7 @@ export default function ListingsAndChannels() {
       <Topbar
         title="Listings & Channels"
         breadcrumb="Operations · Multi-Channel Execution"
-        subtitle="Every SKU that's live somewhere. Drill in for channel-specific overrides."
+        subtitle="One row per master product. Expand to see channel-level detail & overrides."
         actions={
           <button data-testid="sync-all-btn" onClick={syncAll} className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5 transition-colors">
             <RefreshCw size={13} />Sync All Now
@@ -80,55 +125,184 @@ export default function ListingsAndChannels() {
             <option value="paused">Paused</option>
             <option value="error">Error</option>
           </select>
-          <div className="ml-auto text-[12px] text-[var(--fg-muted)] tabular">{filtered.length} listings</div>
+          <div className="flex items-center border border-[var(--border)] divide-x divide-[var(--border)]">
+            <button data-testid="view-grouped" onClick={() => setView("grouped")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "grouped" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><LayoutGrid size={12} />Grouped</button>
+            <button data-testid="view-flat" onClick={() => setView("flat")} className={`px-2.5 py-1.5 text-[12px] flex items-center gap-1 transition-colors ${view === "flat" ? "bg-[var(--fg)] text-white" : "hover:bg-[var(--surface)]"}`}><Rows3 size={12} />Flat</button>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <div className="text-[12px] text-[var(--fg-muted)] tabular">{view === "grouped" ? `${grouped.length} products · ${filtered.length} listings` : `${filtered.length} listings`}</div>
+            {view === "grouped" && (
+              <div className="flex items-center gap-1 text-[11px]">
+                <button data-testid="expand-all" onClick={expandAll} className="text-[var(--primary)] hover:underline">Expand all</button>
+                <span className="text-[var(--fg-muted)]">·</span>
+                <button data-testid="collapse-all" onClick={collapseAll} className="text-[var(--primary)] hover:underline">Collapse</button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="border border-[var(--border)] bg-white overflow-x-auto">
-          <table className="w-full text-[13px]" data-testid="listings-table">
-            <thead className="bg-[var(--surface)]">
-              <tr className="border-b border-[var(--border)]">
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Product</th>
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Master SKU</th>
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channel</th>
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channel SKU</th>
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Status</th>
-                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
-                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Price</th>
-                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sold 30d</th>
-                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Last Sync</th>
-                <th className="p-3 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(l => (
-                <tr key={l.id} className="border-b border-[var(--border)] last:border-b-0 row-hover" data-testid={`listing-row-${l.id}`}>
-                  <td className="p-3">
-                    <Link to={`/listings/${l.id}`} className="flex items-center gap-3 hover:text-[var(--primary)]">
-                      <img src={l.image} alt="" className="w-8 h-8 object-cover border border-[var(--border)]" />
-                      <div className="font-medium truncate max-w-[220px]">{l.title}</div>
-                    </Link>
-                  </td>
-                  <td className="p-3 tabular text-[12px]">{l.master_sku}</td>
-                  <td className="p-3"><ChannelChip channel={l.channel} /></td>
-                  <td className="p-3 tabular text-[12px] text-[var(--fg-muted)]">{l.channel_sku}</td>
-                  <td className="p-3"><StatusPill status={l.status} /></td>
-                  <td className={`p-3 text-right tabular ${l.stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{l.stock}</td>
-                  <td className="p-3 text-right tabular font-medium">{fmt(l.price)}</td>
-                  <td className="p-3 text-right tabular">{l.units_sold_30d}</td>
-                  <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{l.last_synced}</td>
-                  <td className="p-3">
-                    <Link to={`/listings/${l.id}`} className="p-1 hover:bg-[var(--surface-2)] block" data-testid={`open-${l.id}`}>
-                      <ExternalLink size={13} className="text-[var(--fg-muted)]" />
-                    </Link>
-                  </td>
+        {view === "grouped" ? (
+          <div className="border border-[var(--border)] bg-white overflow-x-auto">
+            <table className="w-full text-[13px]" data-testid="listings-grouped-table">
+              <thead className="bg-[var(--surface)]">
+                <tr className="border-b border-[var(--border)]">
+                  <th className="p-3 w-8"></th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Product</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Master SKU</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channels</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Price Range</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sold 30d</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Revenue 30d</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Last Sync</th>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={10} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {grouped.map(g => {
+                  const isOpen = expanded.has(g.master_sku);
+                  return (
+                    <React.Fragment key={g.master_sku}>
+                      <tr
+                        className="border-b border-[var(--border)] cursor-pointer hover:bg-[var(--surface)] transition-colors"
+                        onClick={() => toggleExpand(g.master_sku)}
+                        data-testid={`group-row-${g.master_sku}`}
+                      >
+                        <td className="p-3 text-center">
+                          <ChevronRight size={14} className={`text-[var(--fg-muted)] transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-3">
+                            <img src={g.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
+                            <div className="font-medium truncate max-w-[240px]">{g.title}</div>
+                          </div>
+                        </td>
+                        <td className="p-3 tabular text-[12px] font-medium">{g.master_sku}</td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-1.5">
+                            {g.rows.map(r => (
+                              <div key={r.id} className="relative" title={`${r.channel_label}: ${r.status}`}>
+                                <ChannelChip channel={r.channel} />
+                                {r.status === "error" && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[var(--danger)]"></span>}
+                                {r.status === "paused" && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-[var(--warning)]"></span>}
+                              </div>
+                            ))}
+                            <span className="text-[11px] text-[var(--fg-muted)] tabular ml-1">{g.rows.length}</span>
+                          </div>
+                          {(g.errorCount > 0 || g.pausedCount > 0 || g.oosCount > 0) && (
+                            <div className="flex gap-1.5 mt-1.5 text-[10px]">
+                              {g.errorCount > 0 && <span className="text-[var(--danger)]">● {g.errorCount} error</span>}
+                              {g.pausedCount > 0 && <span className="text-[var(--warning)]">● {g.pausedCount} paused</span>}
+                              {g.oosCount > 0 && <span className="text-[var(--danger)]">● {g.oosCount} OOS</span>}
+                            </div>
+                          )}
+                        </td>
+                        <td className={`p-3 text-right tabular font-medium ${g.totalStock === 0 ? "text-[var(--danger)]" : ""}`}>{g.totalStock}</td>
+                        <td className="p-3 text-right tabular text-[12px]">
+                          {g.priceMin === g.priceMax ? fmt(g.priceMin) : <span className="text-[var(--fg-muted)]">{fmt(g.priceMin)} — {fmt(g.priceMax)}</span>}
+                        </td>
+                        <td className="p-3 text-right tabular">{g.totalUnits}</td>
+                        <td className="p-3 text-right tabular font-medium">{fmt(g.totalRev)}</td>
+                        <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{g.lastSync}</td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="bg-[#FAFAFA]">
+                          <td colSpan={9} className="px-0 py-0 border-b border-[var(--border)]">
+                            <div className="pl-12 pr-6 py-2">
+                              <table className="w-full text-[12px]">
+                                <thead>
+                                  <tr className="border-b border-[var(--border)]">
+                                    <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Channel</th>
+                                    <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Channel SKU</th>
+                                    <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Status</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Stock</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Price</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Sold 30d</th>
+                                    <th className="py-2 text-right text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Revenue 30d</th>
+                                    <th className="py-2 text-left text-[10px] uppercase tracking-wider text-[var(--fg-muted)] font-medium">Last Sync</th>
+                                    <th className="py-2 w-8"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {g.rows.map(r => (
+                                    <tr key={r.id} className="border-b border-[var(--border)] last:border-b-0 hover:bg-white" data-testid={`sub-row-${r.id}`}>
+                                      <td className="py-2"><ChannelChip channel={r.channel} /></td>
+                                      <td className="py-2 tabular text-[11px] text-[var(--fg-muted)]">{r.channel_sku}</td>
+                                      <td className="py-2"><StatusPill status={r.status} /></td>
+                                      <td className={`py-2 text-right tabular ${r.stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{r.stock}</td>
+                                      <td className="py-2 text-right tabular font-medium">{fmt(r.price)}</td>
+                                      <td className="py-2 text-right tabular">{r.units_sold_30d}</td>
+                                      <td className="py-2 text-right tabular">{fmt(r.revenue_30d)}</td>
+                                      <td className="py-2 tabular text-[10px] text-[var(--fg-muted)]">{r.last_synced}</td>
+                                      <td className="py-2">
+                                        <Link to={`/listings/${r.id}`} className="p-1 hover:bg-[var(--surface-2)] block" onClick={e => e.stopPropagation()} data-testid={`open-${r.id}`}>
+                                          <ExternalLink size={12} className="text-[var(--fg-muted)]" />
+                                        </Link>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {grouped.length === 0 && (
+                  <tr><td colSpan={9} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="border border-[var(--border)] bg-white overflow-x-auto">
+            <table className="w-full text-[13px]" data-testid="listings-flat-table">
+              <thead className="bg-[var(--surface)]">
+                <tr className="border-b border-[var(--border)]">
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Product</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Master SKU</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channel</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Channel SKU</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Status</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Price</th>
+                  <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sold 30d</th>
+                  <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Last Sync</th>
+                  <th className="p-3 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(l => (
+                  <tr key={l.id} className="border-b border-[var(--border)] last:border-b-0 row-hover" data-testid={`listing-row-${l.id}`}>
+                    <td className="p-3">
+                      <Link to={`/listings/${l.id}`} className="flex items-center gap-3 hover:text-[var(--primary)]">
+                        <img src={l.image} alt="" className="w-8 h-8 object-cover border border-[var(--border)]" />
+                        <div className="font-medium truncate max-w-[220px]">{l.title}</div>
+                      </Link>
+                    </td>
+                    <td className="p-3 tabular text-[12px]">{l.master_sku}</td>
+                    <td className="p-3"><ChannelChip channel={l.channel} /></td>
+                    <td className="p-3 tabular text-[12px] text-[var(--fg-muted)]">{l.channel_sku}</td>
+                    <td className="p-3"><StatusPill status={l.status} /></td>
+                    <td className={`p-3 text-right tabular ${l.stock === 0 ? "text-[var(--danger)] font-medium" : ""}`}>{l.stock}</td>
+                    <td className="p-3 text-right tabular font-medium">{fmt(l.price)}</td>
+                    <td className="p-3 text-right tabular">{l.units_sold_30d}</td>
+                    <td className="p-3 tabular text-[11px] text-[var(--fg-muted)]">{l.last_synced}</td>
+                    <td className="p-3">
+                      <Link to={`/listings/${l.id}`} className="p-1 hover:bg-[var(--surface-2)] block" data-testid={`open-${l.id}`}>
+                        <ExternalLink size={13} className="text-[var(--fg-muted)]" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={10} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No listings match.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );

@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only testing of Listings & Channels grouped view fix. All 6 expected master SKUs render as unique grouped rows (STR-RUN-001, STR-RUN-002, STR-CAS-010, PLS-WCH-101, PLS-WCH-102, HRT-CFM-201) — no duplicates. Expand/collapse, Expand All/Collapse All, Grouped↔Flat toggle, search, channel filter, status filter, KPI cards, and stopPropagation on ExternalLink all work as expected. Other pages (Master Products variants drawer, Dashboard, Catalogue) load correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Header text '5 products · 5 listings' briefly shown after Amazon filter — cosmetic; counts correctly reflect filtered set.",
+    "Flat view retained 14 rows as expected (pre-fix visible count).",
+    "All data-testid attributes referenced in spec exist and are functional."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "None required",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Grouped listings view working correctly. 6 unique master SKUs render one row each; Expand All shows 32 total rows (6 group headers + 14 channel sub-rows + 12 detail rows structure). Flat view shows 14 flat listings. Toggle preserves filters. ExternalLink stopPropagation verified — click navigates to /listings/:id without toggling expand.",
+  "rca of the issue": "Original bug: listings table iterated over listings array (14 items) producing one row per channel listing, causing repeated master SKUs. Fix in ListingsAndChannels.jsx now groups listings by master_sku (6 groups) by default; Flat view remains as opt-in. Verified via row count comparison: grouped=6, flat=14, all data-testids match spec."
+}
