@@ -1,0 +1,135 @@
+{
+  "theme": "light",
+  "archetype": "Swiss & High-Contrast",
+  "typography": {
+    "headings": {
+      "font_family": "Chivo",
+      "weights": ["font-black", "font-medium"],
+      "tracking": "tracking-tight",
+      "forbidden": ["Inter", "Roboto", "Open Sans", "Lato", "Space Grotesk"]
+    },
+    "body": {
+      "font_family": "IBM Plex Sans",
+      "weights": ["font-normal", "font-medium"]
+    },
+    "tabular_data": {
+      "font_family": "IBM Plex Mono",
+      "usage": "SKUs, order IDs, channel IDs, numeric metrics"
+    },
+    "scale": {
+      "H1": "text-3xl sm:text-4xl",
+      "H2": "text-xl sm:text-2xl",
+      "H3": "text-lg sm:text-xl",
+      "H4": "text-base sm:text-lg",
+      "body": "text-sm",
+      "small_labels": "text-xs tracking-[0.2em] uppercase"
+    }
+  },
+  "colors": {
+    "background": "#FFFFFF",
+    "surface": "#F9FAFB",
+    "surface_hover": "#F3F4F6",
+    "border": "#E5E7EB",
+    "foreground": "#0A0A0A",
+    "muted_foreground": "#6B7280",
+    "primary": "#002FA7",
+    "primary_foreground": "#FFFFFF",
+    "accent_error": "#FF3B30",
+    "accent_warning": "#FFCC00",
+    "accent_success": "#00C781",
+    "forbidden_colors": ["#1B93A4", "#7351B7", "teal green", "teal blue"]
+  },
+  "visual_enhancers": {
+    "surfaces": "Grid Borders: Expose the skeleton. Use border-collapse style layouts with 1px subtle borders (border-r border-b border-border/40) for data-heavy sections.",
+    "shadows": "Minimal. Use flat designs with crisp 1px borders. Add slight shadow-sm on hover for interactive table rows or cards.",
+    "glassmorphism": "Avoid in data tables. Can use backdrop-blur-xl bg-white/70 for sticky headers or floating bulk-action bars.",
+    "corners": "Sharp edges or max 4px (rounded-sm) border-radius. No pill-shaped cards.",
+    "textures": "Clean, sterile, objective. Solid backgrounds to prevent visual refraction of data."
+  },
+  "components": {
+    "tables": {
+      "library": "Shadcn UI (Table)",
+      "styling": "Dense spacing (p-2 or p-3 cells). Left-align text, right-align numbers. Sticky headers for long lists. Use standard React state for sorting/filtering.",
+      "row_actions": "Show quick actions (View Listings, Edit Master) on hover to reduce visual clutter."
+    },
+    "cards": {
+      "library": "Shadcn UI (Card)",
+      "styling": "Flat background, 1px subtle border, no shadow. Hover: slight lift (-translate-y-1) and shadow-lg."
+    },
+    "buttons": {
+      "library": "Shadcn UI (Button)",
+      "styling": "Sharp corners. Primary CTA uses primary color (#002FA7). Secondary actions use outline variants. Explicit hover states (e.g. hover:bg-blue-900)."
+    },
+    "badges": {
+      "library": "Shadcn UI (Badge)",
+      "styling": "Square or rounded-sm. Use distinct colors for Sync Status (Green=Synced, Red=Error, Yellow=Pending). Channel badges should use brand colors (e.g. Amazon Orange, Shopify Green)."
+    },
+    "wizard": {
+      "library": "Custom + Shadcn UI (Tabs/Stepper)",
+      "styling": "For CSV Import: 4-step horizontal progress bar (Upload -> Map & Validate -> Preview -> Commit). Use clear typography for step instructions."
+    },
+    "forms": {
+      "library": "Shadcn UI (Input, Select, Form)",
+      "styling": "Always explicitly define labels. Use structured grid layouts for catalogue attribute schemas."
+    },
+    "toasts": {
+      "library": "sonner",
+      "styling": "Use for sync success/failure notifications. Crisp edges, high contrast text."
+    }
+  },
+  "grids_and_layouts": {
+    "dashboard_overview": {
+      "base_grid": "grid-cols-1 md:grid-cols-4 gap-4",
+      "span_logic": "KPI cards span 1 col. Charts/Graphs span 2 or 3 cols."
+    },
+    "master_detail": {
+      "layout": "Left pane (30% width) for lists/categories, Right pane (70% width) for complex details (like Catalogue Category Taxonomies or Listing Overrides)."
+    },
+    "spacing_scale": "Dense and compact for tables. Use p-4 for cards, p-2/p-3 for table cells. Provide ample p-8 padding for main page containers."
+  },
+  "motion": {
+    "hover_states": "Quick transitions (transition: background-color 0.2s ease, border-color 0.2s ease). DO NOT use 'transition: all'.",
+    "entrance": "Staggered fade-in (framer-motion) for dashboard KPI cards and table rows. Very subtle, 0.3s duration.",
+    "accessibility": "Respect prefers-reduced-motion."
+  },
+  "media_and_icons": {
+    "icon_library": "@phosphor-icons/react",
+    "channel_logos": "react-icons (SiAmazon, SiShopify, SiFlipkart, SiWoocommerce)",
+    "image_urls": [
+      {
+        "category": "Seed Demo Data - Product 1",
+        "url": "https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg",
+        "description": "Minimalist sneaker for master product list."
+      },
+      {
+        "category": "Seed Demo Data - Product 2",
+        "url": "https://images.pexels.com/photos/8217430/pexels-photo-8217430.jpeg",
+        "description": "Smart watch product image."
+      },
+      {
+        "category": "Seed Demo Data - Product 3",
+        "url": "https://images.unsplash.com/photo-1565452344518-47faca79dc69",
+        "description": "Modern coffee maker product image."
+      }
+    ]
+  },
+  "general_ui_ux_guidelines": [
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Ensure high contrast for text over backgrounds. Use APCA contrast calculator rules.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid='sync-button'`).",
+    "Do not use generic centered layouts for data apps. Left-align text, right-align numbers.",
+    "Always provide empty, loading, and error states for table views.",
+    "Maintain filtering, sorting, and pagination state in URL or local state.",
+    "Use progressive disclosure for channel-specific overrides (drill-down into details rather than huge tables).",
+    "Do not use complete transparent background in header, overlays, or dropdowns."
+  ],
+  "instructions_to_main_agent": [
+    "Install dependencies: yarn add @phosphor-icons/react react-icons framer-motion sonner recharts",
+    "Add Shadcn UI components in .js/.jsx extensions (not .tsx) as the project uses JS.",
+    "Implement a persistent Sidebar navigation with Overview, Operations, Setup & Assets sections.",
+    "For the Master Products list, use a dense Table with IBM Plex Mono for SKUs.",
+    "For the CSV Import Wizard, create a stateful multi-step component (Upload -> Map -> Preview -> Commit).",
+    "For Channel Sync, MOCK the sync process with a timeout and show 'Synced' or 'Error' badges using Sonner toasts.",
+    "Implement the 'Swiss & High-Contrast' archetype: stark white background, sharp edges, 1px subtle borders, deep obsidian text."
+  ]
+}
