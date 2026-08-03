@@ -2,19 +2,21 @@ import React, { useState, useMemo } from "react";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill, SyncBadge } from "@/components/Pills";
-import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye } from "lucide-react";
+import { Search, Upload, Plus, MoreHorizontal, Radio, Edit3, Eye, Layers } from "lucide-react";
 import CsvImportWizard from "@/components/CsvImportWizard";
 import ListChannelDrawer from "@/components/ListChannelDrawer";
 import ProductListingsDrawer from "@/components/ProductListingsDrawer";
+import VariantsDrawer from "@/components/VariantsDrawer";
 import { toast } from "sonner";
 
 export default function MasterProducts() {
-  const { products } = useStore();
+  const { products, getVariants } = useStore();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [listDrawerProduct, setListDrawerProduct] = useState(null);
   const [viewDrawerProduct, setViewDrawerProduct] = useState(null);
+  const [variantsProduct, setVariantsProduct] = useState(null);
   const [selected, setSelected] = useState(new Set());
 
   const filtered = useMemo(() => {
@@ -104,12 +106,17 @@ export default function MasterProducts() {
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Category</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">MRP</th>
                 <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Stock</th>
+                <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Variants</th>
                 <th className="p-3 text-left font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)]">Sync Status</th>
-                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)] w-56">Actions</th>
+                <th className="p-3 text-right font-medium text-[11px] uppercase tracking-wider text-[var(--fg-muted)] w-64">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
+              {filtered.map(p => {
+                const vs = getVariants(p.id);
+                const vStock = vs.reduce((s, v) => s + v.stock, 0);
+                const displayStock = vs.length > 0 ? vStock : p.stock;
+                return (
                 <tr key={p.id} className="row-hover border-b border-[var(--border)] last:border-b-0" data-testid={`product-row-${p.id}`}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} data-testid={`select-${p.id}`} /></td>
                   <td className="p-3">
@@ -124,7 +131,21 @@ export default function MasterProducts() {
                   <td className="p-3 tabular text-[12px]">{p.sku}</td>
                   <td className="p-3 text-[12px]">{p.category}</td>
                   <td className="p-3 text-right tabular">₹{p.mrp.toLocaleString("en-IN")}</td>
-                  <td className={`p-3 text-right tabular font-medium ${p.stock === 0 ? "text-[var(--danger)]" : ""}`}>{p.stock}</td>
+                  <td className={`p-3 text-right tabular font-medium ${displayStock === 0 ? "text-[var(--danger)]" : ""}`}>{displayStock}</td>
+                  <td className="p-3">
+                    {vs.length > 0 ? (
+                      <button data-testid={`open-variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 border border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors">
+                        <Layers size={11} />
+                        <span className="tabular font-medium">{vs.length}</span>
+                        <span className="text-[var(--fg-muted)]">·</span>
+                        <span className="text-[var(--fg-muted)]">{(p.option_axes || []).map(a => a.name).join(" × ")}</span>
+                      </button>
+                    ) : (
+                      <button data-testid={`open-variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="text-[11px] text-[var(--fg-muted)] hover:text-[var(--primary)] flex items-center gap-1 transition-colors">
+                        <Plus size={10} />Add variants
+                      </button>
+                    )}
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <StatusPill status={p.status} />
@@ -138,11 +159,11 @@ export default function MasterProducts() {
                   </td>
                   <td className="p-3">
                     <div className="row-actions flex items-center gap-1 justify-end">
+                      <button data-testid={`variants-${p.id}`} onClick={() => setVariantsProduct(p)} className="px-2 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1 transition-colors">
+                        <Layers size={11} />Variants
+                      </button>
                       <button data-testid={`view-listings-${p.id}`} onClick={() => setViewDrawerProduct(p)} className="px-2 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1 transition-colors">
                         <Eye size={11} />View
-                      </button>
-                      <button data-testid={`edit-master-${p.id}`} className="px-2 py-1 text-[11px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1 transition-colors">
-                        <Edit3 size={11} />Edit
                       </button>
                       <button data-testid={`list-channel-${p.id}`} onClick={() => setListDrawerProduct(p)} className="px-2 py-1 text-[11px] bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] flex items-center gap-1 transition-colors">
                         <Radio size={11} />List
@@ -150,9 +171,9 @@ export default function MasterProducts() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
+                <tr><td colSpan={9} className="p-12 text-center text-[13px] text-[var(--fg-muted)]">No products match your filters.</td></tr>
               )}
             </tbody>
           </table>
@@ -162,6 +183,7 @@ export default function MasterProducts() {
       {wizardOpen && <CsvImportWizard onClose={() => setWizardOpen(false)} />}
       {listDrawerProduct && <ListChannelDrawer product={listDrawerProduct} onClose={() => setListDrawerProduct(null)} />}
       {viewDrawerProduct && <ProductListingsDrawer product={viewDrawerProduct} onClose={() => setViewDrawerProduct(null)} />}
+      {variantsProduct && <VariantsDrawer product={variantsProduct} onClose={() => setVariantsProduct(null)} />}
     </>
   );
 }

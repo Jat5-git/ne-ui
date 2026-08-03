@@ -25,7 +25,7 @@ Setup & Assets: Channels, Catalogue
 - Global sidebar layout + top bar with breadcrumbs
 - Dashboard: 4 KPI cards, revenue trend LineChart, channel-mix BarChart, real-time audit log, per-channel summary
 - Analytics: area/pie/bar charts + top performers table
-- Master Products: table with sync badges, filters, search, bulk select, row hover actions (View / Edit / List)
+- Master Products: table with sync badges, filters, search, bulk select, row hover actions (Variants / View / List), inline **Variants** column showing count and axes
 - CSV Import Wizard (4 steps): dropzone, sample download, auto-mapping, validation, preview with error highlighting, direct-list-to-channels option
 - List-on-Channels drawer with progressive mock sync + toasts
 - View Listings drawer (side panel) with per-channel metrics
@@ -35,6 +35,7 @@ Setup & Assets: Channels, Catalogue
 - Returns table
 - Channels management (connect/disconnect, brand cards)
 - Catalogue: Category Taxonomies (tree + details), Attribute Schemas, Brands & Media
+- **Variants Management (2026-02-03)**: Full-side drawer showing option axes (Size/Color/Style/custom), per-variant stock + price editing, add new option values that auto-generate the cartesian variant SKUs, delete individual variants, add new axes on the fly, aggregate stock rollup, push-to-channels summary showing variants × channels total SKUs. Idempotent updates safe under StrictMode.
 
 ## Backlog / P1 / P2
 - P1: Persist state to backend (Mongo models: Product, Listing, Channel, Order, Return, Category, Schema, Brand)

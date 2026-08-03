@@ -35,14 +35,14 @@ const IMG_WATCH = "https://images.pexels.com/photos/8217430/pexels-photo-8217430
 const IMG_COFFEE = "https://images.unsplash.com/photo-1565452344518-47faca79dc69?auto=format&fit=crop&w=200&q=80";
 
 export const MASTER_PRODUCTS = [
-  { id: "mp_001", sku: "STR-RUN-001", title: "Stride Velocity Runner V3", brand: "Stride Athletics", category: "Running Shoes", mrp: 6499, cost: 2100, stock: 240, weight: 0.42, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart"], status: "listed", updated: "2026-02-14" },
-  { id: "mp_002", sku: "STR-RUN-002", title: "Stride Trail Grip Pro", brand: "Stride Athletics", category: "Running Shoes", mrp: 7299, cost: 2450, stock: 158, weight: 0.48, image: IMG_SHOE, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-11" },
-  { id: "mp_003", sku: "STR-CAS-010", title: "Stride Everyday Canvas", brand: "Stride Athletics", category: "Casual Sneakers", mrp: 3199, cost: 980, stock: 412, weight: 0.36, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart", "woocommerce"], status: "listed", updated: "2026-02-13" },
-  { id: "mp_004", sku: "PLS-WCH-101", title: "Pulse Aero Smart Watch", brand: "Pulse Tech", category: "Wearables", mrp: 12499, cost: 4600, stock: 84, weight: 0.05, image: IMG_WATCH, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-10" },
-  { id: "mp_005", sku: "PLS-WCH-102", title: "Pulse Fit Band Slim", brand: "Pulse Tech", category: "Wearables", mrp: 4999, cost: 1600, stock: 0, weight: 0.03, image: IMG_WATCH, channels: ["amazon"], status: "listed", updated: "2026-02-09" },
-  { id: "mp_006", sku: "HRT-CFM-201", title: "Hearth Barista Coffee Maker", brand: "Hearth & Co.", category: "Small Appliances", mrp: 14999, cost: 5900, stock: 62, weight: 4.8, image: IMG_COFFEE, channels: ["shopify", "woocommerce"], status: "listed", updated: "2026-02-08" },
-  { id: "mp_007", sku: "HRT-BLR-210", title: "Hearth Silent Blender 900W", brand: "Hearth & Co.", category: "Small Appliances", mrp: 8499, cost: 2900, stock: 38, weight: 3.2, image: IMG_COFFEE, channels: [], status: "draft", updated: "2026-02-05" },
-  { id: "mp_008", sku: "STR-RUN-003", title: "Stride Marathon Elite", brand: "Stride Athletics", category: "Running Shoes", mrp: 9499, cost: 3400, stock: 96, weight: 0.44, image: IMG_SHOE, channels: [], status: "unlisted", updated: "2026-02-02" },
+  { id: "mp_001", sku: "STR-RUN-001", title: "Stride Velocity Runner V3", brand: "Stride Athletics", category: "Running Shoes", mrp: 6499, cost: 2100, stock: 240, weight: 0.42, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart"], status: "listed", updated: "2026-02-14", option_axes: [{ name: "Size", values: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"] }, { name: "Color", values: ["Obsidian", "Chalk White", "Ember Red"] }] },
+  { id: "mp_002", sku: "STR-RUN-002", title: "Stride Trail Grip Pro", brand: "Stride Athletics", category: "Running Shoes", mrp: 7299, cost: 2450, stock: 158, weight: 0.48, image: IMG_SHOE, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-11", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }, { name: "Color", values: ["Slate Grey", "Forest Green"] }] },
+  { id: "mp_003", sku: "STR-CAS-010", title: "Stride Everyday Canvas", brand: "Stride Athletics", category: "Casual Sneakers", mrp: 3199, cost: 980, stock: 412, weight: 0.36, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart", "woocommerce"], status: "listed", updated: "2026-02-13", option_axes: [{ name: "Size", values: ["UK 6", "UK 7", "UK 8", "UK 9"] }, { name: "Color", values: ["Off White", "Navy"] }] },
+  { id: "mp_004", sku: "PLS-WCH-101", title: "Pulse Aero Smart Watch", brand: "Pulse Tech", category: "Wearables", mrp: 12499, cost: 4600, stock: 84, weight: 0.05, image: IMG_WATCH, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-10", option_axes: [{ name: "Color", values: ["Midnight", "Silver", "Rose Gold"] }, { name: "Style", values: ["Sport Band", "Milanese Loop"] }] },
+  { id: "mp_005", sku: "PLS-WCH-102", title: "Pulse Fit Band Slim", brand: "Pulse Tech", category: "Wearables", mrp: 4999, cost: 1600, stock: 0, weight: 0.03, image: IMG_WATCH, channels: ["amazon"], status: "listed", updated: "2026-02-09", option_axes: [{ name: "Color", values: ["Black", "Coral"] }] },
+  { id: "mp_006", sku: "HRT-CFM-201", title: "Hearth Barista Coffee Maker", brand: "Hearth & Co.", category: "Small Appliances", mrp: 14999, cost: 5900, stock: 62, weight: 4.8, image: IMG_COFFEE, channels: ["shopify", "woocommerce"], status: "listed", updated: "2026-02-08", option_axes: [{ name: "Color", values: ["Matte Black", "Brushed Steel"] }] },
+  { id: "mp_007", sku: "HRT-BLR-210", title: "Hearth Silent Blender 900W", brand: "Hearth & Co.", category: "Small Appliances", mrp: 8499, cost: 2900, stock: 38, weight: 3.2, image: IMG_COFFEE, channels: [], status: "draft", updated: "2026-02-05", option_axes: [] },
+  { id: "mp_008", sku: "STR-RUN-003", title: "Stride Marathon Elite", brand: "Stride Athletics", category: "Running Shoes", mrp: 9499, cost: 3400, stock: 96, weight: 0.44, image: IMG_SHOE, channels: [], status: "unlisted", updated: "2026-02-02", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }] },
 ];
 
 const buildListings = () => {
@@ -79,6 +79,46 @@ const buildListings = () => {
 };
 
 export const LISTINGS = buildListings();
+
+// Build initial variants: cartesian of option_axes.
+// Each variant has its own SKU, stock, and optional price delta.
+const abbr = (v) => {
+  const map = { "Obsidian": "OBS", "Chalk White": "CHW", "Ember Red": "EMR", "Slate Grey": "SLG", "Forest Green": "FGR", "Off White": "OFW", "Navy": "NVY", "Midnight": "MID", "Silver": "SLV", "Rose Gold": "RSG", "Sport Band": "SPT", "Milanese Loop": "MIL", "Black": "BLK", "Coral": "CRL", "Matte Black": "MTB", "Brushed Steel": "BST" };
+  if (map[v]) return map[v];
+  return v.replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase();
+};
+
+const cartesian = (axes) => {
+  if (!axes || axes.length === 0) return [];
+  return axes.reduce((acc, ax) => {
+    if (acc.length === 0) return ax.values.map(v => ({ [ax.name]: v }));
+    return acc.flatMap(row => ax.values.map(v => ({ ...row, [ax.name]: v })));
+  }, []);
+};
+
+const buildVariants = () => {
+  const map = {};
+  MASTER_PRODUCTS.forEach(p => {
+    const combos = cartesian(p.option_axes || []);
+    const perCombo = combos.length ? Math.floor(p.stock / combos.length) : 0;
+    map[p.id] = combos.map((options, i) => {
+      const suffix = Object.values(options).map(abbr).join("-");
+      const priceDelta = i % 4 === 3 ? 200 : 0;  // premium variant
+      return {
+        id: `var_${p.id}_${i}`,
+        product_id: p.id,
+        options,
+        sku: `${p.sku}-${suffix}`,
+        stock: Math.max(0, perCombo - (i % 3) * 4),
+        price: p.mrp + priceDelta,
+        image: p.image,
+      };
+    });
+  });
+  return map;
+};
+
+export const VARIANTS = buildVariants();
 
 export const ORDERS = [
   { id: "ord_10241", channel: "amazon", channel_order_id: "AMZ-402-9931", customer: "Ravi K.", items: 2, total: 12998, status: "shipped", date: "2026-02-14" },
