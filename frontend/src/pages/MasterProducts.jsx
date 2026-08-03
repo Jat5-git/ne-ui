@@ -9,6 +9,7 @@ import ProductListingsDrawer from "@/components/ProductListingsDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
 import StockAllocationDrawer from "@/components/StockAllocationDrawer";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 export default function MasterProducts() {
   const { products, getVariants } = useStore();
@@ -125,7 +126,7 @@ export default function MasterProducts() {
                     <div className="flex items-center gap-3">
                       <img src={p.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
                       <div>
-                        <div className="font-medium">{p.title}</div>
+                        <Link to={`/products/${p.id}`} data-testid={`product-link-${p.id}`} className="font-medium hover:text-[var(--primary)] hover:underline transition-colors">{p.title}</Link>
                         <div className="text-[11px] text-[var(--fg-muted)]">{p.brand} · updated {p.updated}</div>
                       </div>
                     </div>

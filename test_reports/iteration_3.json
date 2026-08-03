@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only testing of the new ProductDetail page (/products/:id) — all 14 acceptance criteria PASS. Direct route load, entry-point navigation (Master Products link, Listings grouped link, Listings flat-view link), all 5 tabs, Performance filters (date+channel combined), History audit filter, drawer buttons, and the invalid-URL fallback all behave as specified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "detailed_results": {
+    "direct_load_/products/mp_001": "PASS — [data-testid=pd-content] renders, header shows SKU STR-RUN-001, Listed status pill, ALLOCATED badge, '240 units master pool', and pd-variants-btn/pd-stock-btn/pd-list-btn all present",
+    "master_products_link": "PASS — [data-testid=product-link-mp_001] navigates to /products/mp_001",
+    "listings_grouped_link": "PASS — [data-testid=group-product-link-STR-RUN-001] navigates to /products/mp_001 (no expand toggle)",
+    "listings_flat_link": "PASS — after [data-testid=view-flat], 14 flat-product-link-* elements found; clicking navigates to /products/mp_001 (not /listings/…)",
+    "tabs": "PASS — all 5 pd-tab-* buttons present and switch content",
+    "overview_tab": "PASS — image, brand/category/MRP/cost/weight/updated grid, pd-quick-kpis with 4 KPIs (Channels Live=3, Variants=15, Units Sold=11, Revenue), Live Listings table with 3 channel rows (Amazon/Shopify/Flipkart), right sidebar cards (Brand=Stride Athletics, Category Mapping, Inventory)",
+    "attributes_tab": "PASS — schema card shows 'Footwear Standard', Option Axes chips contain Size (UK 7–11) and Color, Master Attributes grid present",
+    "variants_tab": "PASS — 15 variant rows rendered, pd-manage-variants button opens the VariantsDrawer",
+    "performance_tab": "PASS — perf-filters bar with 4 date-range buttons (7/14/30/90) and 4 channel buttons (all/amazon/shopify/flipkart); perf-units-chart, perf-rev-chart, perf-channel-share, perf-channel-table, perf-channel-bar all render",
+    "filter_combo_7d_shopify": "PASS — filter counter reads '1 listing · 7 days'; perf-channel-table has exactly 1 tbody row",
+    "history_tab": "PASS — audit trail filtered by SKU STR-RUN-001, '2 events' shown",
+    "drawer_buttons": "PASS — pd-variants-btn opens VariantsDrawer (verified via screenshot); pd-stock-btn and pd-list-btn selectors present",
+    "bad_url": "PASS — /products/not-a-real-id renders 'Product not found' Topbar and 'Back to Master Products' link"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ProductDetail.jsx uses Math.random() in the render path for the 'Conv. Rate' KPI (line 406) — this causes the value to jitter on every re-render (e.g., when switching filters). Consider using a deterministic seed derived from filteredRows/dateRange so the number is stable.",
+    "ProductDetail.jsx is 580 lines — approaching complexity threshold. Consider splitting each tab (Overview, Attributes, Variants, Performance, History) into its own component for maintainability.",
+    "buildTrend() adds noise per point but the sum won't necessarily equal units_sold_30d; the KPI 'Units Sold' shown in Performance uses r.units_sold_30d directly regardless of dateRange — so the KPI number does NOT actually change when switching 30d→7d (only the chart x-axis shrinks). The date-range filter is essentially cosmetic for KPIs. Might be intentional for a prototype but worth confirming with product owner.",
+    "History tab filter uses substring match on log.detail — could yield false positives if SKUs share prefixes. Consider structured logs with sku field."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "100%"},
+  "seed_data_creation": "None — client-side mocked data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "ProductDetail page at /products/:id is fully functional. Entry points: MasterProducts link, ListingsAndChannels grouped view link, and Listings flat view link all confirmed. Note: Performance KPI numbers do not recompute for date-range changes (uses units_sold_30d directly) — chart x-axis does shrink. Conv. Rate KPI uses Math.random() so it jitters on re-render."
+}

@@ -178,7 +178,7 @@ export default function ListingsAndChannels() {
                         <td className="p-3">
                           <div className="flex items-center gap-3">
                             <img src={g.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
-                            <div className="font-medium truncate max-w-[240px]">{g.title}</div>
+                            <Link to={`/products/${g.master_id}`} onClick={e => e.stopPropagation()} data-testid={`group-product-link-${g.master_sku}`} className="font-medium hover:text-[var(--primary)] hover:underline transition-colors truncate max-w-[240px]">{g.title}</Link>
                           </div>
                         </td>
                         <td className="p-3 tabular text-[12px] font-medium">{g.master_sku}</td>
@@ -287,9 +287,9 @@ export default function ListingsAndChannels() {
                 {filtered.map(l => (
                   <tr key={l.id} className="border-b border-[var(--border)] last:border-b-0 row-hover" data-testid={`listing-row-${l.id}`}>
                     <td className="p-3">
-                      <Link to={`/listings/${l.id}`} className="flex items-center gap-3 hover:text-[var(--primary)]">
+                      <Link to={`/products/${l.master_id}`} data-testid={`flat-product-link-${l.id}`} className="flex items-center gap-3 hover:text-[var(--primary)]">
                         <img src={l.image} alt="" className="w-8 h-8 object-cover border border-[var(--border)]" />
-                        <div className="font-medium truncate max-w-[220px]">{l.title}</div>
+                        <div className="font-medium truncate max-w-[220px] hover:underline">{l.title}</div>
                       </Link>
                     </td>
                     <td className="p-3 tabular text-[12px]">{l.master_sku}</td>
