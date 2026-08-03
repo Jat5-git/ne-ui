@@ -73,7 +73,9 @@ export default function NewProductModal({ onClose }) {
       custom_attributes: customAttrs,
     };
     addProducts([product]);
-    const totalFilled = Object.values(channelAttrs).reduce((n, section) => n + Object.keys(section || {}).length, 0);
+    const totalFilled = Object.values(channelAttrs).reduce((n, section) => {
+      return n + Object.values(section || {}).filter(v => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)).length;
+    }, 0);
     toast.success(`${product.title} created`, { description: `${form.images.length || 0} images · ${totalFilled} channel attributes filled · SKU ${product.sku}` });
     onClose();
   };
