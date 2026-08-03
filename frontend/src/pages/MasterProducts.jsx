@@ -117,7 +117,7 @@ export default function MasterProducts() {
               {filtered.map(p => {
                 const vs = getVariants(p.id);
                 const vStock = vs.reduce((s, v) => s + v.stock, 0);
-                const displayStock = vs.length > 0 ? vStock : p.stock;
+                const displayStock = p.stock;  // master pool always primary
                 return (
                 <tr key={p.id} className="row-hover border-b border-[var(--border)] last:border-b-0" data-testid={`product-row-${p.id}`}>
                   <td className="p-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} data-testid={`select-${p.id}`} /></td>
@@ -134,12 +134,17 @@ export default function MasterProducts() {
                   <td className="p-3 text-[12px]">{p.category}</td>
                   <td className="p-3 text-right tabular">₹{p.mrp.toLocaleString("en-IN")}</td>
                   <td className={`p-3 text-right tabular font-medium ${displayStock === 0 ? "text-[var(--danger)]" : ""}`}>
-                    <button data-testid={`stock-btn-${p.id}`} onClick={() => setStockProduct(p)} className="inline-flex items-center gap-1.5 hover:text-[var(--primary)] group transition-colors">
-                      <span>{displayStock}</span>
-                      <span title={p.stock_mode === "central" ? "Central Pool" : "Allocated per Channel"} className={`inline-flex items-center px-1.5 py-0.5 border text-[9px] uppercase tracking-widest font-medium ${p.stock_mode === "central" ? "border-[var(--border)] text-[var(--fg-muted)] group-hover:border-[var(--primary)] group-hover:text-[var(--primary)]" : "border-[var(--primary)] text-[var(--primary)] bg-[#F0F4FF]"}`}>
-                        {p.stock_mode === "central" ? <Boxes size={9} className="mr-0.5" /> : <Split size={9} className="mr-0.5" />}
-                        {p.stock_mode === "central" ? "Pool" : "Split"}
+                    <button data-testid={`stock-btn-${p.id}`} onClick={() => setStockProduct(p)} className="inline-flex flex-col items-end gap-0.5 hover:text-[var(--primary)] group transition-colors" title={p.stock_mode === "central" ? "Central Pool: all channels share this master stock" : "Allocated per Channel: each channel has a dedicated bucket"}>
+                      <span className="flex items-center gap-1.5">
+                        <span>{displayStock}</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 border text-[9px] uppercase tracking-widest font-medium ${p.stock_mode === "central" ? "border-[var(--border)] text-[var(--fg-muted)] group-hover:border-[var(--primary)] group-hover:text-[var(--primary)]" : "border-[var(--primary)] text-[var(--primary)] bg-[#F0F4FF]"}`}>
+                          {p.stock_mode === "central" ? <Boxes size={9} className="mr-0.5" /> : <Split size={9} className="mr-0.5" />}
+                          {p.stock_mode === "central" ? "Pool" : "Split"}
+                        </span>
                       </span>
+                      {vs.length > 0 && (
+                        <span className="text-[10px] text-[var(--fg-muted)] font-normal tabular">{vStock} in variants</span>
+                      )}
                     </button>
                   </td>
                   <td className="p-3">
