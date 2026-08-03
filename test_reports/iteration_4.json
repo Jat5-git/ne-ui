@@ -1,0 +1,41 @@
+{
+  "summary": "Frontend-only testing of the new image-upload / New Product / CSV-import-with-images / ImageGallery feature set. All 11 acceptance criteria PASS. New Product modal opens with all attributes (title, sku, brand, category, weight, mrp, cost, stock, stock-mode radios) + right-side ImageUploader + Production Guide with 4 tabs and copy buttons. Invalid submits are blocked. Valid submits create the product (TEST-001 appeared at top of list). Master Products list shows image-count badges visually on each thumbnail. Product Detail /products/mp_001 renders ImageGallery with 4 thumbs, prev/next navigation updates counter (1/4 -> 2/4), and gal-expand opens the lightbox. Listings & Channels grouped view thumbnails also show image-count badges (visible in screenshot). CSV Import Wizard's sample download button is present; uploading a CSV with image_url_1..3 columns triggers the Map & Validate step where the 'Optional - Images & Weight' section appears with map-image_url_1..6 selectors and auto-maps the 3 image columns. Committing the CSV creates the products with images populated - CSV Test A appears in list with images and its ProductDetail gallery shows the 2 CSV-supplied images. Toast 'Imported 2 products to Master' shown.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "detailed_results": {
+    "new_product_modal_open": "PASS - [data-testid=new-product-modal] appears on btn-new-product click",
+    "modal_fields_present": "PASS - np-title, np-sku, np-brand, np-category, np-weight, np-mrp, np-cost, np-stock all present",
+    "stock_mode_radios": "PASS - actual testids are np-mode-central / np-mode-allocated (review request said np-stock-mode-* which is incorrect naming, feature works)",
+    "image_uploader_present": "PASS - [data-testid=image-uploader] + [data-testid=image-file-input] present in modal",
+    "invalid_submit_blocked": "PASS - clicking np-save with empty form keeps modal open (validation blocks submit)",
+    "valid_submit_creates_product": "PASS - Test Prod / TEST-001 appeared at top of master products list after np-save",
+    "production_guide_opens": "PASS - open-guide button opens [data-testid=prod-guide]",
+    "guide_tabs": "PASS - guide-tab-overview, guide-tab-backend, guide-tab-frontend, guide-tab-emergent all present",
+    "guide_copy_buttons": "PASS - copy-backend and copy-frontend buttons present on respective tabs",
+    "mp_image_count_badges": "PASS visually - numeric badges (4,3,4,3,2,3,2,3) visible on top-left of each master products row thumbnail (no data-testid, only rendered when images.length > 1)",
+    "product_detail_gallery_mp_001": "PASS - [data-testid=image-gallery] with 4 gal-thumb-* cells, gal-prev/gal-next navigate and counter goes 1/4 -> 2/4, gal-expand opens [data-testid=gal-lightbox]",
+    "listings_grouped_badges": "PASS visually - thumbnails on /listings grouped view show numeric image-count badges (4,3,4,3,2,3 visible in screenshot)",
+    "csv_wizard_sample_download": "PASS - [data-testid=download-sample] present on upload step",
+    "csv_map_step_image_columns": "PASS - after uploading a CSV with image_url_1..3 columns, Map & Validate step shows 'Optional - Images & Weight' section with map-image_url_1..6 selectors and auto-maps image_url_1/2/3",
+    "csv_commit_creates_products_with_images": "PASS - CSV Test A (CSV-A) and CSV Test B (CSV-B) appear in master products list; navigating to CSV Test A's ProductDetail shows [data-testid=image-gallery] with 2 gal-thumb-* cells (matching the 2 URLs provided in the CSV); success toast 'Imported 2 products to Master' displayed"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Review request referred to np-stock-mode-central/-allocated but actual data-testids are np-mode-central/np-mode-allocated. Consider renaming for clarity/consistency with the 'stock_mode' field in the form state.",
+    "Master Products image-count badge (MasterProducts.jsx line 131) has no data-testid - it is only rendered when p.images.length > 1 (single-image products get no badge). Adding a data-testid=\"mp-img-badge-<id>\" would aid deterministic testing.",
+    "CSV Import Wizard: for products imported with only 1 image, the badge won't show on the master products list because of the > 1 check - inconsistent with ProductDetail which shows a gallery even for 1 image. Consider changing to >= 1 or hiding the badge for 0 images only.",
+    "ImageUploader stores images as base64 data URLs in client memory - as designed for the prototype and disclaimed in the Production Guide - just noting this can bloat context/localStorage if many images are added; safe for a demo."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no backend)", "frontend": "100%"},
+  "test_credentials": "N/A - no auth",
+  "seed_data_creation": "During test, created two CSV-imported products (CSV-A, CSV-B) and one manual product (TEST-001) - all in client-side context store, cleared on browser reload",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All image/upload/gallery/CSV features work as specified. Data-testid naming diverges from review request in two spots (np-mode-* vs np-stock-mode-*, and mp image-count badge has no testid) - features function correctly; if strict testid parity is required, main agent should update these testids. Client-side state resets on page reload (in-memory Context store)."
+}

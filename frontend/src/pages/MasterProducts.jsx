@@ -8,6 +8,7 @@ import ListChannelDrawer from "@/components/ListChannelDrawer";
 import ProductListingsDrawer from "@/components/ProductListingsDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
 import StockAllocationDrawer from "@/components/StockAllocationDrawer";
+import NewProductModal from "@/components/NewProductModal";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -20,6 +21,7 @@ export default function MasterProducts() {
   const [viewDrawerProduct, setViewDrawerProduct] = useState(null);
   const [variantsProduct, setVariantsProduct] = useState(null);
   const [stockProduct, setStockProduct] = useState(null);
+  const [newProductOpen, setNewProductOpen] = useState(false);
   const [selected, setSelected] = useState(new Set());
 
   const filtered = useMemo(() => {
@@ -55,7 +57,7 @@ export default function MasterProducts() {
             <button data-testid="btn-import-csv" onClick={() => setWizardOpen(true)} className="px-3 py-1.5 text-[12px] border border-[var(--border)] hover:bg-[var(--surface)] flex items-center gap-1.5 transition-colors">
               <Upload size={13} />Import via CSV
             </button>
-            <button data-testid="btn-new-product" className="px-3 py-1.5 text-[12px] bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] flex items-center gap-1.5 transition-colors">
+            <button data-testid="btn-new-product" onClick={() => setNewProductOpen(true)} className="px-3 py-1.5 text-[12px] bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)] flex items-center gap-1.5 transition-colors">
               <Plus size={13} />New Product
             </button>
           </>
@@ -124,7 +126,12 @@ export default function MasterProducts() {
                   <td className="p-3"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} data-testid={`select-${p.id}`} /></td>
                   <td className="p-3">
                     <div className="flex items-center gap-3">
-                      <img src={p.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
+                      <div className="relative">
+                        <img src={p.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
+                        {(p.images || []).length > 1 && (
+                          <span className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 py-0 tabular font-medium">{p.images.length}</span>
+                        )}
+                      </div>
                       <div>
                         <Link to={`/products/${p.id}`} data-testid={`product-link-${p.id}`} className="font-medium hover:text-[var(--primary)] hover:underline transition-colors">{p.title}</Link>
                         <div className="text-[11px] text-[var(--fg-muted)]">{p.brand} · updated {p.updated}</div>
@@ -201,6 +208,7 @@ export default function MasterProducts() {
       {viewDrawerProduct && <ProductListingsDrawer product={viewDrawerProduct} onClose={() => setViewDrawerProduct(null)} />}
       {variantsProduct && <VariantsDrawer product={variantsProduct} onClose={() => setVariantsProduct(null)} />}
       {stockProduct && <StockAllocationDrawer product={stockProduct} onClose={() => setStockProduct(null)} />}
+      {newProductOpen && <NewProductModal onClose={() => setNewProductOpen(false)} />}
     </>
   );
 }

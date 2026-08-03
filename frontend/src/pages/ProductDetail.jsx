@@ -3,11 +3,12 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import Topbar from "@/components/Topbar";
 import { useStore } from "@/store/StoreContext";
 import { ChannelChip, StatusPill } from "@/components/Pills";
-import { ArrowLeft, Radio, Layers, Boxes, Split, ExternalLink, Info, TrendingUp, ShoppingCart, IndianRupee, Percent } from "lucide-react";
+import { ArrowLeft, Radio, Layers, Boxes, Split, ExternalLink, Info, TrendingUp, ShoppingCart, IndianRupee, Percent, Image as ImageIcon } from "lucide-react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import ListChannelDrawer from "@/components/ListChannelDrawer";
 import VariantsDrawer from "@/components/VariantsDrawer";
 import StockAllocationDrawer from "@/components/StockAllocationDrawer";
+import ImageGallery from "@/components/ImageGallery";
 
 const fmt = (n) => "₹" + (n || 0).toLocaleString("en-IN");
 const CHANNEL_COLORS = { amazon: "#FF9900", shopify: "#7AB55C", flipkart: "#2874F0", woocommerce: "#7F54B3" };
@@ -148,10 +149,18 @@ export default function ProductDetail() {
             <div className="lg:col-span-2 space-y-6">
               <div className="border border-[var(--border)] p-6">
                 <div className="flex gap-6">
-                  <img src={product.image} alt="" className="w-32 h-32 object-cover border border-[var(--border)]" />
+                  <div className="w-64 shrink-0">
+                    <ImageGallery images={product.images || [product.image]} title={product.title} primaryImage={product.image} size="md" />
+                  </div>
                   <div className="flex-1 space-y-3">
                     <div>
-                      <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Product</div>
+                      <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold flex items-center gap-2">
+                        Product
+                        <span className="inline-flex items-center gap-1 text-[10px] text-[var(--fg-muted)] normal-case tracking-normal">
+                          <ImageIcon size={10} />
+                          {(product.images || []).length || 1} image{((product.images || []).length || 1) !== 1 ? "s" : ""}
+                        </span>
+                      </div>
                       <div className="font-display font-black text-2xl tracking-tight mt-1">{product.title}</div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-[13px]">

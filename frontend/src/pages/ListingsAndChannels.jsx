@@ -177,7 +177,16 @@ export default function ListingsAndChannels() {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-3">
-                            <img src={g.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
+                            <div className="relative">
+                              <img src={g.image} alt="" className="w-9 h-9 object-cover border border-[var(--border)]" />
+                              {(() => {
+                                const prod = products.find(p => p.id === g.master_id);
+                                const imgCount = (prod?.images || []).length;
+                                return imgCount > 1 ? (
+                                  <span className="absolute -top-1 -right-1 bg-[var(--fg)] text-white text-[9px] px-1 tabular font-medium" title={`${imgCount} images`}>{imgCount}</span>
+                                ) : null;
+                              })()}
+                            </div>
                             <Link to={`/products/${g.master_id}`} onClick={e => e.stopPropagation()} data-testid={`group-product-link-${g.master_sku}`} className="font-medium hover:text-[var(--primary)] hover:underline transition-colors truncate max-w-[240px]">{g.title}</Link>
                           </div>
                         </td>
@@ -249,8 +258,7 @@ export default function ListingsAndChannels() {
                                           <ExternalLink size={12} className="text-[var(--fg-muted)]" />
                                         </Link>
                                       </td>
-                                    </tr>
-                                  ))}
+                                    </tr>                                  ))}
                                 </tbody>
                               </table>
                             </div>

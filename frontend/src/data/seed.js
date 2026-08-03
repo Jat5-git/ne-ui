@@ -30,19 +30,30 @@ export const BRANDS = [
   { id: "br_hearth", name: "Hearth & Co.", assets: 19, primary_color: "#8B4513" },
 ];
 
-const IMG_SHOE = "https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg?auto=compress&cs=tinysrgb&w=200";
-const IMG_WATCH = "https://images.pexels.com/photos/8217430/pexels-photo-8217430.jpeg?auto=compress&cs=tinysrgb&w=200";
-const IMG_COFFEE = "https://images.unsplash.com/photo-1565452344518-47faca79dc69?auto=format&fit=crop&w=200&q=80";
+const IMG_SHOE = "https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_SHOE_2 = "https://images.pexels.com/photos/1598505/pexels-photo-1598505.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_SHOE_3 = "https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_SHOE_4 = "https://images.pexels.com/photos/1102776/pexels-photo-1102776.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_WATCH = "https://images.pexels.com/photos/8217430/pexels-photo-8217430.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_WATCH_2 = "https://images.pexels.com/photos/9978722/pexels-photo-9978722.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_WATCH_3 = "https://images.pexels.com/photos/9978736/pexels-photo-9978736.jpeg?auto=compress&cs=tinysrgb&w=400";
+const IMG_COFFEE = "https://images.unsplash.com/photo-1565452344518-47faca79dc69?auto=format&fit=crop&w=400&q=80";
+const IMG_COFFEE_2 = "https://images.unsplash.com/photo-1517705600937-c5c1cbd51e0d?auto=format&fit=crop&w=400&q=80";
+const IMG_COFFEE_3 = "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=400&q=80";
+
+const SHOE_GALLERY = [IMG_SHOE, IMG_SHOE_2, IMG_SHOE_3, IMG_SHOE_4];
+const WATCH_GALLERY = [IMG_WATCH, IMG_WATCH_2, IMG_WATCH_3];
+const COFFEE_GALLERY = [IMG_COFFEE, IMG_COFFEE_2, IMG_COFFEE_3];
 
 export const MASTER_PRODUCTS = [
-  { id: "mp_001", sku: "STR-RUN-001", title: "Stride Velocity Runner V3", brand: "Stride Athletics", category: "Running Shoes", mrp: 6499, cost: 2100, stock: 240, weight: 0.42, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart"], status: "listed", updated: "2026-02-14", option_axes: [{ name: "Size", values: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"] }, { name: "Color", values: ["Obsidian", "Chalk White", "Ember Red"] }], stock_mode: "allocated" },
-  { id: "mp_002", sku: "STR-RUN-002", title: "Stride Trail Grip Pro", brand: "Stride Athletics", category: "Running Shoes", mrp: 7299, cost: 2450, stock: 158, weight: 0.48, image: IMG_SHOE, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-11", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }, { name: "Color", values: ["Slate Grey", "Forest Green"] }], stock_mode: "central" },
-  { id: "mp_003", sku: "STR-CAS-010", title: "Stride Everyday Canvas", brand: "Stride Athletics", category: "Casual Sneakers", mrp: 3199, cost: 980, stock: 412, weight: 0.36, image: IMG_SHOE, channels: ["amazon", "shopify", "flipkart", "woocommerce"], status: "listed", updated: "2026-02-13", option_axes: [{ name: "Size", values: ["UK 6", "UK 7", "UK 8", "UK 9"] }, { name: "Color", values: ["Off White", "Navy"] }], stock_mode: "allocated" },
-  { id: "mp_004", sku: "PLS-WCH-101", title: "Pulse Aero Smart Watch", brand: "Pulse Tech", category: "Wearables", mrp: 12499, cost: 4600, stock: 84, weight: 0.05, image: IMG_WATCH, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-10", option_axes: [{ name: "Color", values: ["Midnight", "Silver", "Rose Gold"] }, { name: "Style", values: ["Sport Band", "Milanese Loop"] }], stock_mode: "central" },
-  { id: "mp_005", sku: "PLS-WCH-102", title: "Pulse Fit Band Slim", brand: "Pulse Tech", category: "Wearables", mrp: 4999, cost: 1600, stock: 0, weight: 0.03, image: IMG_WATCH, channels: ["amazon"], status: "listed", updated: "2026-02-09", option_axes: [{ name: "Color", values: ["Black", "Coral"] }], stock_mode: "central" },
-  { id: "mp_006", sku: "HRT-CFM-201", title: "Hearth Barista Coffee Maker", brand: "Hearth & Co.", category: "Small Appliances", mrp: 14999, cost: 5900, stock: 62, weight: 4.8, image: IMG_COFFEE, channels: ["shopify", "woocommerce"], status: "listed", updated: "2026-02-08", option_axes: [{ name: "Color", values: ["Matte Black", "Brushed Steel"] }], stock_mode: "allocated" },
-  { id: "mp_007", sku: "HRT-BLR-210", title: "Hearth Silent Blender 900W", brand: "Hearth & Co.", category: "Small Appliances", mrp: 8499, cost: 2900, stock: 38, weight: 3.2, image: IMG_COFFEE, channels: [], status: "draft", updated: "2026-02-05", option_axes: [], stock_mode: "central" },
-  { id: "mp_008", sku: "STR-RUN-003", title: "Stride Marathon Elite", brand: "Stride Athletics", category: "Running Shoes", mrp: 9499, cost: 3400, stock: 96, weight: 0.44, image: IMG_SHOE, channels: [], status: "unlisted", updated: "2026-02-02", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }], stock_mode: "central" },
+  { id: "mp_001", sku: "STR-RUN-001", title: "Stride Velocity Runner V3", brand: "Stride Athletics", category: "Running Shoes", mrp: 6499, cost: 2100, stock: 240, weight: 0.42, image: IMG_SHOE, images: SHOE_GALLERY, channels: ["amazon", "shopify", "flipkart"], status: "listed", updated: "2026-02-14", option_axes: [{ name: "Size", values: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"] }, { name: "Color", values: ["Obsidian", "Chalk White", "Ember Red"] }], stock_mode: "allocated" },
+  { id: "mp_002", sku: "STR-RUN-002", title: "Stride Trail Grip Pro", brand: "Stride Athletics", category: "Running Shoes", mrp: 7299, cost: 2450, stock: 158, weight: 0.48, image: IMG_SHOE_2, images: [IMG_SHOE_2, IMG_SHOE_3, IMG_SHOE], channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-11", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }, { name: "Color", values: ["Slate Grey", "Forest Green"] }], stock_mode: "central" },
+  { id: "mp_003", sku: "STR-CAS-010", title: "Stride Everyday Canvas", brand: "Stride Athletics", category: "Casual Sneakers", mrp: 3199, cost: 980, stock: 412, weight: 0.36, image: IMG_SHOE_3, images: [IMG_SHOE_3, IMG_SHOE_4, IMG_SHOE, IMG_SHOE_2], channels: ["amazon", "shopify", "flipkart", "woocommerce"], status: "listed", updated: "2026-02-13", option_axes: [{ name: "Size", values: ["UK 6", "UK 7", "UK 8", "UK 9"] }, { name: "Color", values: ["Off White", "Navy"] }], stock_mode: "allocated" },
+  { id: "mp_004", sku: "PLS-WCH-101", title: "Pulse Aero Smart Watch", brand: "Pulse Tech", category: "Wearables", mrp: 12499, cost: 4600, stock: 84, weight: 0.05, image: IMG_WATCH, images: WATCH_GALLERY, channels: ["amazon", "shopify"], status: "listed", updated: "2026-02-10", option_axes: [{ name: "Color", values: ["Midnight", "Silver", "Rose Gold"] }, { name: "Style", values: ["Sport Band", "Milanese Loop"] }], stock_mode: "central" },
+  { id: "mp_005", sku: "PLS-WCH-102", title: "Pulse Fit Band Slim", brand: "Pulse Tech", category: "Wearables", mrp: 4999, cost: 1600, stock: 0, weight: 0.03, image: IMG_WATCH_2, images: [IMG_WATCH_2, IMG_WATCH_3], channels: ["amazon"], status: "listed", updated: "2026-02-09", option_axes: [{ name: "Color", values: ["Black", "Coral"] }], stock_mode: "central" },
+  { id: "mp_006", sku: "HRT-CFM-201", title: "Hearth Barista Coffee Maker", brand: "Hearth & Co.", category: "Small Appliances", mrp: 14999, cost: 5900, stock: 62, weight: 4.8, image: IMG_COFFEE, images: COFFEE_GALLERY, channels: ["shopify", "woocommerce"], status: "listed", updated: "2026-02-08", option_axes: [{ name: "Color", values: ["Matte Black", "Brushed Steel"] }], stock_mode: "allocated" },
+  { id: "mp_007", sku: "HRT-BLR-210", title: "Hearth Silent Blender 900W", brand: "Hearth & Co.", category: "Small Appliances", mrp: 8499, cost: 2900, stock: 38, weight: 3.2, image: IMG_COFFEE_2, images: [IMG_COFFEE_2, IMG_COFFEE_3], channels: [], status: "draft", updated: "2026-02-05", option_axes: [], stock_mode: "central" },
+  { id: "mp_008", sku: "STR-RUN-003", title: "Stride Marathon Elite", brand: "Stride Athletics", category: "Running Shoes", mrp: 9499, cost: 3400, stock: 96, weight: 0.44, image: IMG_SHOE_4, images: [IMG_SHOE_4, IMG_SHOE, IMG_SHOE_2], channels: [], status: "unlisted", updated: "2026-02-02", option_axes: [{ name: "Size", values: ["UK 8", "UK 9", "UK 10"] }], stock_mode: "central" },
 ];
 
 const buildListings = () => {
@@ -154,8 +165,8 @@ export const REVENUE_TREND = [
   { day: "Feb 14", amazon: 58000, shopify: 39000, flipkart: 27500, woocommerce: 14100 },
 ];
 
-export const CSV_SAMPLE = `sku,title,brand,category,mrp,cost,stock,weight_kg
-DEMO-001,Runner Air Max,Stride Athletics,Running Shoes,5999,1900,150,0.40
-DEMO-002,Casual Loafer Suede,Stride Athletics,Casual Sneakers,3499,1100,220,0.38
-DEMO-003,Smart Band Lite,Pulse Tech,Wearables,2999,900,80,0.03
+export const CSV_SAMPLE = `sku,title,brand,category,mrp,cost,stock,weight_kg,image_url_1,image_url_2,image_url_3
+DEMO-001,Runner Air Max,Stride Athletics,Running Shoes,5999,1900,150,0.40,https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg,,
+DEMO-002,Casual Loafer Suede,Stride Athletics,Casual Sneakers,3499,1100,220,0.38,https://images.pexels.com/photos/1598505/pexels-photo-1598505.jpeg,,
+DEMO-003,Smart Band Lite,Pulse Tech,Wearables,2999,900,80,0.03,https://images.pexels.com/photos/8217430/pexels-photo-8217430.jpeg,,
 `;

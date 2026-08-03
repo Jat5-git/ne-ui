@@ -7,6 +7,7 @@ import { toast } from "sonner";
 const STEPS = ["Upload", "Map & Validate", "Preview", "Commit"];
 
 const REQUIRED = ["sku", "title", "brand", "category", "mrp", "cost", "stock"];
+const OPTIONAL = ["weight_kg", "image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"];
 
 export default function CsvImportWizard({ onClose }) {
   const { addProducts, listProductOnChannels } = useStore();
@@ -41,8 +42,8 @@ export default function CsvImportWizard({ onClose }) {
       setHeaders(h);
       setRows(r);
       const autoMap = {};
-      REQUIRED.forEach(req => {
-        const found = h.find(hh => hh.toLowerCase().includes(req));
+      [...REQUIRED, ...OPTIONAL].forEach(req => {
+        const found = h.find(hh => hh.toLowerCase() === req.toLowerCase());
         if (found) autoMap[req] = found;
       });
       setMapping(autoMap);
@@ -73,22 +74,31 @@ export default function CsvImportWizard({ onClose }) {
   };
 
   const commit = () => {
-    const IMG_POOL = ["https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg?auto=compress&cs=tinysrgb&w=200"];
-    const newProducts = validated.filter(v => v.errors.length === 0).map((v, i) => ({
-      id: `mp_imp_${Date.now()}_${i}`,
-      sku: v.row[mapping.sku],
-      title: v.row[mapping.title],
-      brand: v.row[mapping.brand],
-      category: v.row[mapping.category],
-      mrp: parseFloat(v.row[mapping.mrp]) || 0,
-      cost: parseFloat(v.row[mapping.cost]) || 0,
-      stock: parseInt(v.row[mapping.stock]) || 0,
-      weight: parseFloat(v.row[mapping.weight_kg || "weight_kg"] || v.row["weight_kg"] || 0),
-      image: IMG_POOL[0],
-      channels: [],
-      status: "draft",
-      updated: new Date().toISOString().slice(0, 10),
-    }));
+    const FALLBACK = "https://images.pexels.com/photos/12628400/pexels-photo-12628400.jpeg?auto=compress&cs=tinysrgb&w=300";
+    const newProducts = validated.filter(v => v.errors.length === 0).map((v, i) => {
+      const images = ["image_url_1", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6"]
+        .map(k => mapping[k] ? v.row[mapping[k]] : "")
+        .filter(u => u && u.trim().length > 0);
+      const primary = images[0] || FALLBACK;
+      return {
+        id: `mp_imp_${Date.now()}_${i}`,
+        sku: v.row[mapping.sku],
+        title: v.row[mapping.title],
+        brand: v.row[mapping.brand],
+        category: v.row[mapping.category],
+        mrp: parseFloat(v.row[mapping.mrp]) || 0,
+        cost: parseFloat(v.row[mapping.cost]) || 0,
+        stock: parseInt(v.row[mapping.stock]) || 0,
+        weight: parseFloat(mapping.weight_kg ? v.row[mapping.weight_kg] : 0) || 0,
+        image: primary,
+        images: images.length ? images : [FALLBACK],
+        channels: [],
+        status: "draft",
+        stock_mode: "central",
+        option_axes: [],
+        updated: new Date().toISOString().slice(0, 10),
+      };
+    });
     addProducts(newProducts);
     if (postAction === "direct_list" && selectedChannels.length > 0) {
       newProducts.forEach(p => listProductOnChannels(p.id, selectedChannels));
@@ -159,9 +169,29 @@ export default function CsvImportWizard({ onClose }) {
             <div>
               <div className="text-[13px] mb-4">Match your CSV columns to the required Master Product fields. We&apos;ve auto-detected {Object.keys(mapping).length} of {REQUIRED.length}.</div>
               <div className="border border-[var(--border)]">
+                <div className="px-4 py-2 bg-[var(--surface)] border-b border-[var(--border)] text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Required fields</div>
                 {REQUIRED.map(req => (
                   <div key={req} className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--border)] last:border-b-0">
-                    <div className="w-40 text-[12px] font-medium">{req} {["sku", "title", "mrp", "stock"].includes(req) && <span className="text-[var(--danger)]">*</span>}</div>
+                    <div className="w-40 text-[12px] font-medium">{req} <span className="text-[var(--danger)]">*</span></div>
+                    <div className="text-[var(--fg-muted)]">→</div>
+                    <select
+                      data-testid={`map-${req}`}
+                      value={mapping[req] || ""}
+                      onChange={e => setMapping(m => ({ ...m, [req]: e.target.value }))}
+                      className="flex-1 border border-[var(--border)] px-2 py-1 text-[13px] outline-none"
+                    >
+                      <option value="">— Not mapped —</option>
+                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    {mapping[req] && <Check size={14} className="text-[var(--success)]" />}
+                  </div>
+                ))}
+              </div>
+              <div className="border border-[var(--border)] mt-3">
+                <div className="px-4 py-2 bg-[var(--surface)] border-b border-[var(--border)] text-[10px] uppercase tracking-widest text-[var(--fg-muted)] font-semibold">Optional · Images & Weight</div>
+                {OPTIONAL.map(req => (
+                  <div key={req} className="flex items-center gap-4 px-4 py-2.5 border-b border-[var(--border)] last:border-b-0">
+                    <div className="w-40 text-[12px] font-medium">{req}</div>
                     <div className="text-[var(--fg-muted)]">→</div>
                     <select
                       data-testid={`map-${req}`}
